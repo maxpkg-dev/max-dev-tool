@@ -1,18 +1,27 @@
+/*
+[INFO]
+NAME=MaxPkg Packager
+VERSION=1.0.0
+AUTHOR=Vasyl Lukianenko
+DEV=https://3dground.net
+SITE=https://maxpkg.dev
+HELP=
+UPDATE=https://raw.githubusercontent.com/maxpkg-dev/max-dev-tool/main/maxpkg-packager.ms
+
+[ABOUT]
+Drag this script into a 3ds Max viewport from a developer productfolder.=
+It builds a universal MaxPkg-compatible .mzp package. =
+The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
+
+[1.0.0]
+* Initial release =
+
+[FILES]
+
+[SCRIPT]
+*/
+
 (
-    /*
-        MaxPkg Packager for Autodesk 3ds Max
-        ------------------------------------------------------------
-
-        Drag this script into a 3ds Max viewport from a developer product
-        folder. It builds a universal MaxPkg-compatible .mzp package.
-
-        The package does not install MaxPkg Toolbar or MaxPkg Runtime.
-    */
-
-
-    local PACKAGER_VERSION = "1.0.0"
-    local PACKAGER_NAME = "maxpkg-packager"
-
     local scriptPath = getFilenamePath (getThisScriptFilename())
     if (scriptPath == undefined) do scriptPath = (getDir #scripts) + "\\maxpkg-packager.ms"
 
@@ -27,7 +36,12 @@
     local isLoadingSettings = false
     global MaxPkgPackagerFloater
     global MaxPkgPackagerLogRollout
+    global MaxPkgUpdateNoticeRollout
     local isLogDialogOpen = false
+    local startupUpdateWorker = undefined
+    local startupUpdateResult = undefined
+    local pendingUpdateScriptFile = ""
+    local pendingUpdateNoticeContent = ""
 
     local showLogWindow
     local refreshLogWindow
@@ -112,6 +126,229 @@
         return result
     )
 
+    fn currentScriptFilePath = (
+        local currentScriptFile = getThisScriptFileName()
+        if (currentScriptFile == undefined or currentScriptFile == "") do currentScriptFile = getThisScriptFilename()
+        return currentScriptFile
+    )
+
+    struct MaxPkgScriptInfoData (
+        scriptTitle,
+        versionString,
+        authorTitle,
+        developerUrl,
+        siteUrl,
+        helpUrl,
+        updateUrl,
+        descriptionContent,
+        releases
+    )
+
+    struct MaxPkgUpdateResultData (
+        isUpdated,
+        currentVersionString,
+        newVersionString,
+        releaseNotesContent,
+        messageContent,
+        scriptFilePath
+    )
+
+    fn scriptInfoEntry scriptFilePath infoKey defaultContent:"" = (
+        local entryContent = try (getINISetting scriptFilePath "INFO" infoKey) catch("")
+        if (entryContent == undefined or entryContent == "") do return defaultContent
+        return entryContent
+    )
+
+    fn readScriptInfo scriptFilePath releaseInfo:"" = (
+        if (releaseInfo != "") do (
+            local releaseItems = try (getINISetting scriptFilePath releaseInfo) catch(#())
+            return releaseItems
+        )
+
+        local descriptionContent = ""
+        local aboutItems = try (getINISetting scriptFilePath "ABOUT") catch(#())
+        for aboutIndex in 1 to aboutItems.count do (
+            descriptionContent += aboutItems[aboutIndex]
+            if (aboutIndex < aboutItems.count) do descriptionContent += "\r\n"
+        )
+
+        local releaseItems = #()
+        local iniSections = try (getINISetting scriptFilePath) catch(#())
+        for iniSectionName in iniSections do (
+            if (iniSectionName != "INFO" and iniSectionName != "ABOUT" and iniSectionName != "SCRIPT" and iniSectionName != "FILES") do (
+                append releaseItems iniSectionName
+            )
+        )
+
+        local scriptInfo = MaxPkgScriptInfoData()
+        scriptInfo.scriptTitle = scriptInfoEntry scriptFilePath "NAME" defaultContent:"MaxPkg Packager"
+        scriptInfo.versionString = scriptInfoEntry scriptFilePath "VERSION" defaultContent:"0.0.0"
+        scriptInfo.authorTitle = scriptInfoEntry scriptFilePath "AUTHOR" defaultContent:""
+        scriptInfo.developerUrl = scriptInfoEntry scriptFilePath "DEV" defaultContent:""
+        scriptInfo.siteUrl = scriptInfoEntry scriptFilePath "SITE" defaultContent:""
+        scriptInfo.helpUrl = scriptInfoEntry scriptFilePath "HELP" defaultContent:""
+        scriptInfo.updateUrl = scriptInfoEntry scriptFilePath "UPDATE" defaultContent:""
+        scriptInfo.descriptionContent = descriptionContent
+        scriptInfo.releases = releaseItems
+
+        return scriptInfo
+    )
+
+    fn versionNumberAt versionParts partIndex = (
+        if (partIndex > versionParts.count) do return 0
+        return try (versionParts[partIndex] as integer) catch(0)
+    )
+
+    fn compareVersionStrings candidateVersion currentVersion = (
+        local candidateParts = filterString (candidateVersion as string) "."
+        local currentParts = filterString (currentVersion as string) "."
+
+        for versionPartIndex in 1 to 3 do (
+            local candidateNumber = versionNumberAt candidateParts versionPartIndex
+            local currentNumber = versionNumberAt currentParts versionPartIndex
+            if (candidateNumber > currentNumber) do return 1
+            if (candidateNumber < currentNumber) do return -1
+        )
+
+        return 0
+    )
+
+    fn downloadUpdateFile updateUrl targetFilePath = (
+        if (updateUrl == undefined or updateUrl == "") do return false
+        if (targetFilePath == undefined or targetFilePath == "") do return false
+
+        try (deleteFile targetFilePath) catch()
+
+        try (
+            local servicePointManager = dotNetClass "System.Net.ServicePointManager"
+            servicePointManager.SecurityProtocol = servicePointManager.SecurityProtocol.TLS12
+
+            local webClient = dotNetObject "System.Net.WebClient"
+            webClient.DownloadFile (updateUrl + "?time=" + (timestamp() as string)) targetFilePath
+            return doesFileExist targetFilePath
+        ) catch (
+            return false
+        )
+    )
+
+    fn applyDownloadedScriptUpdate downloadedFilePath currentScriptFile = (
+        if (not (doesFileExist downloadedFilePath)) do return false
+        if (not (doesFileExist currentScriptFile)) do return false
+
+        local backupFilePath = currentScriptFile + ".bak"
+        try (deleteFile backupFilePath) catch()
+
+        if (not (copyFile currentScriptFile backupFilePath)) do return false
+
+        try (
+            setFileAttribute currentScriptFile #readOnly false
+            deleteFile currentScriptFile
+            if (not (renameFile downloadedFilePath currentScriptFile)) do (
+                copyFile backupFilePath currentScriptFile
+                return false
+            )
+        ) catch (
+            try (copyFile backupFilePath currentScriptFile) catch()
+            return false
+        )
+
+        try (deleteFile backupFilePath) catch()
+        return true
+    )
+
+    fn releaseNotesForVersion scriptFilePath releaseVersionString = (
+        local releaseItems = readScriptInfo scriptFilePath releaseInfo:releaseVersionString
+        local releaseContent = ""
+
+        for releaseIndex in 1 to releaseItems.count do (
+            releaseContent += releaseItems[releaseIndex]
+            if (releaseIndex < releaseItems.count) do releaseContent += "\r\n"
+        )
+
+        if (releaseContent == "") do releaseContent = "No changelog entries for this version."
+        return releaseContent
+    )
+
+    fn releaseNotesForUpdate scriptFilePath currentVersionString newVersionString = (
+        local scriptInfo = readScriptInfo scriptFilePath
+        local releaseContent = ""
+
+        for releaseSectionName in scriptInfo.releases do (
+            local isAfterCurrent = (compareVersionStrings releaseSectionName currentVersionString) > 0
+            local isNotAfterNew = (compareVersionStrings releaseSectionName newVersionString) <= 0
+
+            if (isAfterCurrent and isNotAfterNew) do (
+                if (releaseContent != "") do releaseContent += "\r\n\r\n"
+                releaseContent += "[" + releaseSectionName + "]\r\n"
+                releaseContent += releaseNotesForVersion scriptFilePath releaseSectionName
+            )
+        )
+
+        if (releaseContent == "") do releaseContent = releaseNotesForVersion scriptFilePath newVersionString
+        return releaseContent
+    )
+
+    fn newUpdateResultData = (
+        local updateResult = MaxPkgUpdateResultData()
+        updateResult.isUpdated = false
+        updateResult.currentVersionString = ""
+        updateResult.newVersionString = ""
+        updateResult.releaseNotesContent = ""
+        updateResult.messageContent = ""
+        updateResult.scriptFilePath = currentScriptFilePath()
+        return updateResult
+    )
+
+    fn checkAndDownloadScriptUpdate showMessages:false reloadAfterUpdate:false = (
+        local updateResult = newUpdateResultData()
+        local currentScriptFile = currentScriptFilePath()
+        updateResult.scriptFilePath = currentScriptFile
+        if (currentScriptFile == undefined or currentScriptFile == "") do return updateResult
+
+        local currentInfo = readScriptInfo currentScriptFile
+        updateResult.currentVersionString = currentInfo.versionString
+
+        if (currentInfo.updateUrl == "") do (
+            if (showMessages) do messageBox "Update URL is not configured." title:"MaxPkg Packager"
+            updateResult.messageContent = "Update URL is not configured."
+            return updateResult
+        )
+
+        local downloadedFilePath = currentScriptFile + ".update"
+        if (not (downloadUpdateFile currentInfo.updateUrl downloadedFilePath)) do (
+            if (showMessages) do messageBox "Could not download update." title:"MaxPkg Packager"
+            updateResult.messageContent = "Could not download update."
+            return updateResult
+        )
+
+        local downloadedInfo = readScriptInfo downloadedFilePath
+        updateResult.newVersionString = downloadedInfo.versionString
+        local compareResult = compareVersionStrings downloadedInfo.versionString currentInfo.versionString
+
+        if (compareResult <= 0) do (
+            try (deleteFile downloadedFilePath) catch()
+            if (showMessages) do messageBox ("You already have the latest version: " + currentInfo.versionString) title:"MaxPkg Packager"
+            updateResult.messageContent = "You already have the latest version: " + currentInfo.versionString
+            return updateResult
+        )
+
+        updateResult.releaseNotesContent = releaseNotesForUpdate downloadedFilePath currentInfo.versionString downloadedInfo.versionString
+
+        if (not (applyDownloadedScriptUpdate downloadedFilePath currentScriptFile)) do (
+            try (deleteFile downloadedFilePath) catch()
+            if (showMessages) do messageBox "Downloaded update, but could not replace current script." title:"MaxPkg Packager"
+            updateResult.messageContent = "Downloaded update, but could not replace current script."
+            return updateResult
+        )
+
+        updateResult.isUpdated = true
+        updateResult.messageContent = "Script updated from " + currentInfo.versionString + " to " + downloadedInfo.versionString + "."
+        print updateResult.messageContent
+
+        if (reloadAfterUpdate) do try (fileIn currentScriptFile) catch()
+        return updateResult
+    )
+
     fn startsWith str prefix = (
         if (str == undefined or prefix == undefined) do return false
         if (str.count < prefix.count) do return false
@@ -124,6 +361,14 @@
         if (str.count < suffix.count) do return false
 
         return (substring str (str.count - suffix.count + 1) suffix.count) == suffix
+    )
+
+    fn hasLogErrors = (
+        for logMessage in logItems do (
+            if (startsWith logMessage "[ERROR]") do return true
+        )
+
+        return false
     )
 
     fn directoryExists dirPath = (
@@ -563,6 +808,14 @@
         return changelogCount > 0
     )
 
+    fn hasChangelogEntries = (
+        for changelogItem in changelogItems do (
+            if (changelogItem.count >= 2 and (trimString changelogItem[2]) != "") do return true
+        )
+
+        return false
+    )
+
     fn saveSettings ui shouldLog:false = (
         if (isLoadingSettings) do return false
 
@@ -685,6 +938,7 @@
         if (versionText == "") do (addLog "ERROR" "Version is required"; isValid = false)
         if ((selectedReleaseChannel ui) == "") do (addLog "ERROR" "Release channel is required"; isValid = false)
         if (releaseDate == "") do (addLog "ERROR" "Release date is required"; isValid = false)
+        if (not (hasChangelogEntries())) do (addLog "ERROR" ("Changelog for version " + versionText + " must contain at least one item"); isValid = false)
         if ((getDropDownText ui.ddlLicense) == "") do (addLog "ERROR" "License is required"; isValid = false)
         if (minMax == undefined or maxMax == undefined) do (addLog "ERROR" "Min and max 3ds Max versions must be numbers"; isValid = false)
         if (minMax != undefined and maxMax != undefined and minMax > maxMax) do (addLog "ERROR" "Min 3ds Max version must be <= max version"; isValid = false)
@@ -747,6 +1001,7 @@
     fn buildManifestIni ui = (
         local ss = stringStream ""
         local iconPath = ""
+        local scriptInfo = readScriptInfo (currentScriptFilePath())
 
         if ((trimString ui.edtIcon.text) != "") do iconPath = "icons/icon.svg"
 
@@ -774,8 +1029,8 @@
         format "%" (iniLine "showInToolbar" (boolToString ui.chkShowToolbar.checked)) to:ss
         format "%" (iniLine "installScript" (detectRootHook "install.ms")) to:ss
         format "%" (iniLine "uninstallScript" (detectRootHook "uninstall.ms")) to:ss
-        format "%" (iniLine "packager" PACKAGER_NAME) to:ss
-        format "%" (iniLine "packagerVersion" PACKAGER_VERSION) to:ss
+        format "%" (iniLine "packager" scriptInfo.scriptTitle) to:ss
+        format "%" (iniLine "packagerVersion" scriptInfo.versionString) to:ss
         format "\n[changelog]\n" to:ss
 
         for i in 1 to changelogItems.count do (
@@ -789,6 +1044,7 @@
     fn buildManifestJson ui = (
         local ss = stringStream ""
         local iconPath = ""
+        local scriptInfo = readScriptInfo (currentScriptFilePath())
         local minMax = (selectedMinMaxYear ui) as integer
         local maxMax = currentMaxYearPlusOne()
 
@@ -818,8 +1074,8 @@
         format "  \"showInToolbar\": %, \n" (boolToString ui.chkShowToolbar.checked) to:ss
         format "  \"installScript\": \"%\",\n" (escapeJson (detectRootHook "install.ms")) to:ss
         format "  \"uninstallScript\": \"%\",\n" (escapeJson (detectRootHook "uninstall.ms")) to:ss
-        format "  \"packager\": \"%\",\n" PACKAGER_NAME to:ss
-        format "  \"packagerVersion\": \"%\",\n" PACKAGER_VERSION to:ss
+        format "  \"packager\": \"%\",\n" (escapeJson scriptInfo.scriptTitle) to:ss
+        format "  \"packagerVersion\": \"%\",\n" (escapeJson scriptInfo.versionString) to:ss
         format "  \"changelog\": [\n" to:ss
 
         for i in 1 to changelogItems.count do (
@@ -1288,6 +1544,11 @@
             addLog "OK" "SVG icon copied"
         )
 
+        if (hasLogErrors()) do (
+            addLog "ERROR" "MZP was not created because log contains errors"
+            return false
+        )
+
         if (createMzpFromFolder buildRoot outputFile) then (
             addLog "OK" ("MZP created: " + outputFile)
             return true
@@ -1298,6 +1559,7 @@
 
 
     try (destroyDialog MaxPkgPackagerLogRollout) catch()
+    try (destroyDialog MaxPkgUpdateNoticeRollout) catch()
     isLogDialogOpen = false
 
     try (closeRolloutFloater MaxPkgPackagerFloater) catch()
@@ -1421,7 +1683,7 @@
 			label lblRuntime "Launch" align: #left across: 5 offset: [0, 4]
 			dropdownList ddlRuntime "" width:120 items:#("maxscript", "python") selection:1 align: #left offset: [-37, 0]
 			label lblEntry "Entry File" align: #left offset: [34, 4]
-			editText edtEntry ""width: 250 align: #right offset: [53, 0]
+			editText edtEntry ""width: 250 align: #right offset: [53, 3]
 			button btnEntryFromSelected "Use Selected" width: 80 align: #right	
 		)
 
@@ -1711,11 +1973,12 @@
         )        
 
         on btnBuild pressed do (
-            buildPackage MaxPkgPackagerRollout
-            showLogWindow()
-			if (edtOutput.text != "" and doesDirectoryExist edtOutput.text) do (
+            local isSuccess = buildPackage MaxPkgPackagerRollout
+            showLogWindow()	
+
+			if (isSuccess and edtOutput.text != "" and doesDirectoryExist edtOutput.text) do (
 				ShellLaunch edtOutput.text ""
-			)
+			)			
         )
 
         on MaxPkgPackagerRollout close do (
@@ -1799,24 +2062,214 @@
         return true
     )
 
+    rollout MaxPkgUpdateNoticeRollout "MaxPkg Packager Updated" width:520 height:355
+    (
+        group "Update Installed" (
+            label lblUpdateNoticeTitle "MaxPkg Packager has been updated." align:#left
+            dotNetControl dncUpdateNoticeContent "System.Windows.Forms.TextBox" height:245 align:#left
+        )
+
+        button btnRestartUpdatedScript "Restart Packager" width:120 align:#left across:2
+        button btnCloseUpdateNotice "Close" width:80 align:#right
+
+        on MaxPkgUpdateNoticeRollout open do (
+            local scrollBarsClass = dotNetClass "System.Windows.Forms.ScrollBars"
+            dncUpdateNoticeContent.Multiline = true
+            dncUpdateNoticeContent.ReadOnly = true
+            dncUpdateNoticeContent.WordWrap = true
+            dncUpdateNoticeContent.ScrollBars = scrollBarsClass.Vertical
+            dncUpdateNoticeContent.Text = pendingUpdateNoticeContent
+        )
+
+        on btnRestartUpdatedScript pressed do (
+            try (destroyDialog MaxPkgUpdateNoticeRollout) catch()
+            try (fileIn pendingUpdateScriptFile) catch (
+                messageBox "Update installed, but the script could not restart automatically." title:"MaxPkg Packager"
+            )
+        )
+
+        on btnCloseUpdateNotice pressed do (
+            destroyDialog MaxPkgUpdateNoticeRollout
+        )
+    )
+
+    fn buildUpdateNoticeContent updateResult = (
+        local noticeContent = "Update installed successfully.\r\n\r\n"
+        noticeContent += "Previous version: " + updateResult.currentVersionString + "\r\n"
+        noticeContent += "Installed version: " + updateResult.newVersionString + "\r\n\r\n"
+        noticeContent += "Changelog:\r\n"
+        noticeContent += updateResult.releaseNotesContent
+        noticeContent += "\r\n\r\nClick Restart Packager to load the updated script."
+        return noticeContent
+    )
+
+    fn showUpdateNoticeDialog updateResult = (
+        if (updateResult == undefined) do return false
+        if (not updateResult.isUpdated) do return false
+
+        pendingUpdateScriptFile = updateResult.scriptFilePath
+        pendingUpdateNoticeContent = buildUpdateNoticeContent updateResult
+
+        try (destroyDialog MaxPkgUpdateNoticeRollout) catch()
+        try (
+            createDialog MaxPkgUpdateNoticeRollout width:540 height:380
+        ) catch (
+            messageBox pendingUpdateNoticeContent title:"MaxPkg Packager Updated"
+            return false
+        )
+
+        return true
+    )
+
+    fn startupUpdateDoWork sender eventArgs = (
+        startupUpdateResult = checkAndDownloadScriptUpdate showMessages:false reloadAfterUpdate:false
+        local hasStartupUpdate = false
+        if (startupUpdateResult != undefined) do hasStartupUpdate = startupUpdateResult.isUpdated
+        eventArgs.Result = hasStartupUpdate
+        return true
+    )
+
+    fn startupUpdateCompleted sender eventArgs = (
+        if (eventArgs.Error != undefined) do return false
+        if (eventArgs.Result == true) do showUpdateNoticeDialog startupUpdateResult
+        return true
+    )
+
+    fn startStartupUpdateCheck = (
+        try (
+            startupUpdateWorker = dotNetObject "CSharpUtilities.SynchronizingBackgroundWorker"
+            startupUpdateWorker.WorkerSupportsCancellation = true
+            dotNet.addEventHandler startupUpdateWorker "DoWork" startupUpdateDoWork
+            dotNet.addEventHandler startupUpdateWorker "RunWorkerCompleted" startupUpdateCompleted
+            startupUpdateWorker.RunWorkerAsync()
+            return true
+        ) catch (
+            return false
+        )
+    )
+
     rollout MaxPkgPackagerAboutRollout "About" width:740
     (
-        label lblAboutTitle "MaxPkg Packager for Autodesk 3ds Max" align:#left
-        label lblAboutVersion "" align:#left
-        label lblAboutWebsite "MaxPkg: https://maxpkg.dev" align:#left
-        label lblAboutDeveloper "Developer: Vasyl Lukianenko (https://3dground.net)" align:#left
-        label lblAboutPurpose "Builds a universal MaxPkg-compatible .mzp package from the current product folder." align:#left
-        label lblAboutRoot "" align:#left
-        label lblAboutIni "" align:#left
+        local isUpdateCheckRunning = false
+        local aboutUpdateWorker = undefined
+        local aboutUpdateResult = undefined
+
+        group "Script Info" (
+            label lblAboutTitle "" align:#left
+            label lblAboutVersion "" align:#left
+            label lblAboutAuthor "" align:#left
+            dotNetControl dncAboutDescription "System.Windows.Forms.TextBox" height:70 align:#left
+        )
+
+        group "Links" (
+            label lblSiteCaption "Website:" align:#left across:2 width:80
+            hyperlink hplAboutSite "" align:#left offset:[-250, 0] color: orange hoverColor:orange visitedColor: orange
+            label lblDeveloperCaption "Developer:" align:#left across:2 width:80
+            hyperlink hplAboutDeveloper "" align:#left offset:[-250, 0] color: orange hoverColor:orange visitedColor: orange
+            label lblHelpCaption "Help:" align:#left across:2 width:80
+            hyperlink hplAboutHelp "" align:#left offset:[-250, 0] color: orange hoverColor:orange visitedColor: orange
+        )
+
+        group "Update" (
+            label lblAboutUpdateStatus "Update: not checked" align:#left
+            button btnCheckAboutUpdate "Check Updates" width:120 align:#left
+        )
+
+        group "Paths" (
+            label lblAboutRoot "" align:#left
+            label lblAboutIni "" align:#left
+        )
+
+        fn updateLinkControl linkControl linkUrl emptyCaption:"Not configured" = (
+            if (linkUrl == undefined or linkUrl == "") then (
+                linkControl.caption = emptyCaption
+                linkControl.address = ""
+            ) else (
+                linkControl.caption = linkUrl
+                linkControl.address = linkUrl
+            )
+
+            return true
+        )
+
+        fn refreshAboutInfo = (
+            local scriptInfo = readScriptInfo (currentScriptFilePath())
+
+            lblAboutTitle.caption = scriptInfo.scriptTitle
+            lblAboutVersion.caption = "Version: " + scriptInfo.versionString
+            lblAboutAuthor.caption = "Author: " + scriptInfo.authorTitle
+            lblAboutRoot.caption = "Root: " + rootDir
+            lblAboutIni.caption = "INI: " + iniPath
+
+            dncAboutDescription.Multiline = true
+            dncAboutDescription.ReadOnly = true
+            dncAboutDescription.WordWrap = true
+            dncAboutDescription.BorderStyle = (dotNetClass "System.Windows.Forms.BorderStyle").FixedSingle
+            dncAboutDescription.Text = scriptInfo.descriptionContent
+
+            updateLinkControl hplAboutSite scriptInfo.siteUrl emptyCaption:"Not configured"
+            updateLinkControl hplAboutDeveloper scriptInfo.developerUrl emptyCaption:"Not configured"
+            updateLinkControl hplAboutHelp scriptInfo.helpUrl emptyCaption:"Not configured"
+
+            try (MaxPkgPackagerFloater.title = scriptInfo.scriptTitle + " v" + scriptInfo.versionString) catch()
+            return true
+        )
+
+        fn aboutUpdateDoWork sender eventArgs = (
+            aboutUpdateResult = checkAndDownloadScriptUpdate showMessages:false reloadAfterUpdate:false
+            local hasAboutUpdate = false
+            if (aboutUpdateResult != undefined) do hasAboutUpdate = aboutUpdateResult.isUpdated
+            eventArgs.Result = hasAboutUpdate
+            return true
+        )
+
+        fn aboutUpdateCompleted sender eventArgs = (
+            isUpdateCheckRunning = false
+            if (eventArgs.Error != undefined) then (
+                lblAboutUpdateStatus.caption = "Update: check failed"
+            ) else if (eventArgs.Result == true) then (
+                lblAboutUpdateStatus.caption = "Update: installed"
+                showUpdateNoticeDialog aboutUpdateResult
+            ) else (
+                local scriptInfo = readScriptInfo (currentScriptFilePath())
+                lblAboutUpdateStatus.caption = "Update: current version " + scriptInfo.versionString
+            )
+            return true
+        )
+
+        fn runBackgroundUpdateCheck = (
+            if (isUpdateCheckRunning) do return false
+
+            isUpdateCheckRunning = true
+            lblAboutUpdateStatus.caption = "Update: checking..."
+
+            try (
+                aboutUpdateWorker = dotNetObject "CSharpUtilities.SynchronizingBackgroundWorker"
+                aboutUpdateWorker.WorkerSupportsCancellation = true
+
+                dotNet.addEventHandler aboutUpdateWorker "DoWork" aboutUpdateDoWork
+                dotNet.addEventHandler aboutUpdateWorker "RunWorkerCompleted" aboutUpdateCompleted
+                aboutUpdateWorker.RunWorkerAsync()
+            ) catch (
+                isUpdateCheckRunning = false
+                lblAboutUpdateStatus.caption = "Update: check failed"
+                return false
+            )
+
+            return true
+        )
 
         on MaxPkgPackagerAboutRollout open do (
-            lblAboutVersion.text = "Version: " + PACKAGER_VERSION
-            lblAboutRoot.text = "Root: " + rootDir
-            lblAboutIni.text = "INI: " + iniPath
+            refreshAboutInfo()
+        )
+
+        on btnCheckAboutUpdate pressed do (
+            runBackgroundUpdateCheck()
         )
     )
 
     MaxPkgPackagerFloater = newRolloutFloater "MaxPkg Packager" 760 805
     addRollout MaxPkgPackagerRollout MaxPkgPackagerFloater rolledUp:false
     addRollout MaxPkgPackagerAboutRollout MaxPkgPackagerFloater rolledUp:true
+    startStartupUpdateCheck()
 )
