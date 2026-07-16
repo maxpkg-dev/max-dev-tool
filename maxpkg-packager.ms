@@ -519,6 +519,20 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         return "MaxPkg_" + (substituteString guid "-" "")
     )
 
+    fn maxScriptStringLiteral sourceContent = (
+        local literalContent = sourceContent as string
+        literalContent = substituteString literalContent "\\" "\\\\"
+        literalContent = substituteString literalContent "\"" "\\\""
+        return "\"" + literalContent + "\""
+    )
+
+    fn maxScriptForwardPathLiteral sourceFilePath = (
+        local literalContent = sourceFilePath as string
+        literalContent = substituteString literalContent "\\" "/"
+        literalContent = substituteString literalContent "\"" "\\\""
+        return "\"" + literalContent + "\""
+    )
+
     fn isSafeRelativePath relPath = (
         local rel = normalizePath relPath
 
@@ -1094,11 +1108,17 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         local ss = stringStream ""
         local guid = trimString ui.edtGuid.text
         local buttonText = substituteString (trimString ui.edtButtonName.text) "\"" "\\\""
+        local hasIconFile = (trimString ui.edtIcon.text) != ""
 
         format "macroScript %\n" (macroNameFromGuid guid) to:ss
         format "category:\"MaxPkg\"\n" to:ss
         format "buttonText:\"%\"\n" buttonText to:ss
         format "tooltip:\"Run %\"\n" buttonText to:ss
+        if (hasIconFile) do (
+            local macroIconFilePath = (ensureTrailingSlash (getDir #userIcons)) + guid + ".svg"
+            local macroIconPath = maxScriptForwardPathLiteral macroIconFilePath
+            format "%\n" ("iconName:" + macroIconPath) to:ss
+        )
         format "(\n" to:ss
         format "    on execute do\n" to:ss
         format "    (\n" to:ss
@@ -1423,14 +1443,29 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         return ss as string
     )
 
-    fn buildMzpEntryScript = (
+    fn buildMzpEntryScript ui = (
         local ss = stringStream ""
+        local packageGuid = trimString ui.edtGuid.text
 
         format "(\n" to:ss
+        format "    local packageGuid = %\n\n" (maxScriptStringLiteral packageGuid) to:ss
         format "    fn maxPkgEntryEnsureSlash folderPath = (\n" to:ss
         format "        if (folderPath == undefined or folderPath == \"\") do return \"\"\n" to:ss
         format "        if ((substring folderPath folderPath.count 1) == \"\\\\\") do return folderPath\n" to:ss
         format "        return folderPath + \"\\\\\"\n" to:ss
+        format "    )\n\n" to:ss
+        format "    fn maxPkgEntryInstallIcon entryFolder packageGuid = (\n" to:ss
+        format "        local sourceIconFile = entryFolder + \"icons\\\\icon.svg\"\n" to:ss
+        format "        local targetIconFile = (maxPkgEntryEnsureSlash (getDir #userIcons)) + packageGuid + \".svg\"\n\n" to:ss
+        format "        if (not (doesFileExist sourceIconFile)) do return true\n\n" to:ss
+        format "        try (\n" to:ss
+        format "            if (doesFileExist targetIconFile) do deleteFile targetIconFile\n" to:ss
+        format "            copyFile sourceIconFile targetIconFile\n" to:ss
+        format "            return true\n" to:ss
+        format "        ) catch (\n" to:ss
+        format "            messageBox (\"Could not install package icon:\\n\" + targetIconFile + \"\\n\\n\" + getCurrentException()) title:\"MaxPkg\"\n" to:ss
+        format "            return false\n" to:ss
+        format "        )\n" to:ss
         format "    )\n\n" to:ss
         format "    fn maxPkgEntryRunOptionalScript scriptFilePath = (\n" to:ss
         format "        if (scriptFilePath == undefined or scriptFilePath == \"\") do return false\n" to:ss
@@ -1444,6 +1479,7 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         format "        )\n" to:ss
         format "    )\n\n" to:ss
         format "    local entryFolder = maxPkgEntryEnsureSlash (getFilenamePath (getSourceFileName()))\n\n" to:ss
+        format "    maxPkgEntryInstallIcon entryFolder packageGuid\n" to:ss
         format "    maxPkgEntryRunOptionalScript (entryFolder + \"maxpkg-button.mcr\")\n" to:ss
         format "    maxPkgEntryRunOptionalScript (entryFolder + \"install.ms\")\n" to:ss
         format ")\n" to:ss
@@ -1524,7 +1560,7 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
                 addLog "OK" "maxpkg-button.mcr generated"
             )
 
-            writeTextFile (buildRoot + "mzp.run.ms") (buildMzpEntryScript())
+            writeTextFile (buildRoot + "mzp.run.ms") (buildMzpEntryScript ui)
             addLog "OK" "mzp.run.ms generated"
 
             writeTextFile (buildRoot + "mzp.run") (buildMzpRunScript ui)
@@ -1558,11 +1594,11 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
     rollout MaxPkgGuidChangeConfirmRollout "Confirm GUID Change" width:360 height:150
     (
         label lblGuidChangeWarning "Changing Package GUID creates a new package identity." align:#left
-        label lblGuidChangeInstruction "Type CHANGE to generate a new GUID." align:#left
-        editText edtGuidChangePhrase "" width:330 align:#left
+        label lblGuidChangeInstruction "Type CHANGE to generate a new GUID." align:#left offset: [0, 15]
+        editText edtGuidChangePhrase "" align:#left
 
-        button btnConfirmGuidChange "OK" width:80 height:24 enabled:false align:#left across:2
-        button btnCancelGuidChange "Cancel" width:80 height:24 align:#right
+        button btnConfirmGuidChange "OK" width:80 height:24 enabled:false align:#left across:2 offset: [0, 15]
+        button btnCancelGuidChange "Cancel" width:80 height:24 align:#right offset: [0, 15]
 
         on MaxPkgGuidChangeConfirmRollout open do (
             edtGuidChangePhrase.text = ""
@@ -1590,7 +1626,7 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
     fn confirmGuidChange = (
         isGuidChangeConfirmed = false
         try (destroyDialog MaxPkgGuidChangeConfirmRollout) catch()
-        createDialog MaxPkgGuidChangeConfirmRollout width:380 height:170 modal:true
+        createDialog MaxPkgGuidChangeConfirmRollout width:380 height:128 modal:true
         return isGuidChangeConfirmed
     )
 
@@ -1640,7 +1676,7 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
 			label lblDeveloperName "Developer Name" across: 4 align: #left offset: [0, 4]
 			editText edtDeveloperName "" width:235  align: #left offset: [-75, 4]
 			label lblLicense "License" align: #left offset: [0, 4]
-			dropdownList ddlLicense "" width: 100 items:#("Free","Shareware","Commercial","Open Source","MIT","GPL","Custom") selection:1  align: #left offset: [-52, 0]
+			dropdownList ddlLicense "" width: 100 items:#("Free","Shareware","Commercial","Open source","Trial") selection:1  align: #left offset: [-52, 0]
 
 			label lblLicenseUrl "License URL" across: 4 align: #left
 			editText edtLicenseUrl "" width:235  align: #left offset: [-75, 0]

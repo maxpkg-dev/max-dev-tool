@@ -12,6 +12,8 @@ MaxPkg-compatible `.mzp` packages from a product folder.
 - Generates `manifest.ini`, `manifest.json`, `mzp.run`, `mzp.run.ms`,
   and optional `maxpkg-button.mcr`.
 - Copies selected package files and optional `icons/icon.svg`.
+- Installs the optional SVG icon into `getDir #userIcons` as `<packageGuid>.svg`
+  before loading the generated macro button.
 - Builds the final output as `<packageGuid>.mzp`.
 
 The generated package installs into:
