@@ -1730,10 +1730,12 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
 			
 			button btnAddFile "[+] Add Files" width: 80 align: #left across: 6
 			button btnAddFolder "Add Folder" width:80 align: #left offset: [-31, 0]
-			button btnScanRoot "Scan Folder" width:80 align: #left offset: [-62, 0]			
-			button btnCreateSampleInstall "Create sample install.ms" width:178 align:#left offset:[-93, 0]
-            button btnCreateSampleUninstall "Create sample uninstall.ms" width:178 align:#left offset:[-27, 0]			
-			button btnRemoveFile "[-] Remove" width:80 align: #right
+			button btnScanRoot "Scan Folder" width:80 align: #left offset: [-62, 0]
+			button btnRemoveFile "[-] Remove" width:80 align: #left offset:[-93, 0]	
+			
+			button btnCreateSampleInstall "Create sample install.ms" width:150 align:#right offset:[-39, 0]
+            button btnCreateSampleUninstall "Create sample uninstall.ms" width:150 align:#right 		
+			
 
          
 		)
@@ -1758,7 +1760,7 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
 
        
 		button btnValidate "Validate" width: 120 height:28 align:#left across: 2 offset: [0, 15]
-		button btnBuild "Build MZP" width: 120 height:28 align:#right offset: [0, 15]
+		checkbutton btnBuild "Build MZP" width: 120 height:28 align:#right offset: [0, 15] checked: true  highlightColor: (color 52 168 83)
 
 
         fn refreshFiles = (
@@ -2036,7 +2038,8 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
             showLogWindow()
         )        
 
-        on btnBuild pressed do (
+        on btnBuild changed v do (
+			btnBuild.checked = true
             local isSuccess = buildPackage MaxPkgPackagerRollout
             showLogWindow()	
 
