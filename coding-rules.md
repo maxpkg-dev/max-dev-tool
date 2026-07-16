@@ -48,6 +48,7 @@ if (isUploaded) then (
 - Keep temporary data structs close to the code that owns them. If a data struct is only used by one wrapper/factory, define it inside that wrapper/factory instead of adding another global type at the top of the file.
 - Prefer passing one readable data struct through several functions over passing parallel arrays or relying on array indexes such as `item[1]`, `item[2]`, `item[3]`.
 - `tmp` is acceptable only as a short-lived local variable; the struct type itself should have a meaningful name.
+- Do not let `struct` type names differ from functions, locals, rollouts, or controls only by letter case or a close camel/pascal variant. MaxScript name resolution can be case-insensitive in ways that make `SampleDataSources` conflict with `sampleDataSources`; prefer explicit type suffixes such as `SampleDataSourcesData`.
 
 Example:
 

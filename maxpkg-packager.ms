@@ -236,12 +236,13 @@
 
     fn copySvgIconToRoot sourceFilePath = (
         local sourceIconFile = normalizePath sourceFilePath
-        local rootIconFile = normalizePath ((ensureTrailingSlash rootDir) + (filenameFromPath sourceIconFile))
+        local rootIconFile = normalizePath ((ensureTrailingSlash rootDir) + "maxpkg-icon.svg")
 
         if (sourceIconFile == "") do return ""
         if (not (doesFileExist sourceIconFile)) do return ""
 
         if ((lowerString sourceIconFile) != (lowerString rootIconFile)) do (
+            if (doesFileExist rootIconFile) do deleteFile rootIconFile
             if (not (copyFile sourceIconFile rootIconFile)) do return ""
         )
 
@@ -872,6 +873,274 @@
         return ss as string
     )
 
+    fn buildSampleInstallScript = (
+        local ss = stringStream ""
+
+        format "(\n" to:ss
+        format "    struct SampleDataSourcesData (\n" to:ss
+        format "        scriptDir,\n" to:ss
+        format "        manifestFilePath,\n" to:ss
+        format "        settingsFilePath,\n" to:ss
+        format "        changelogFilePath\n" to:ss
+        format "    )\n\n" to:ss
+        format "    struct SamplePackageInfoData (\n" to:ss
+        format "        packageTitle,\n" to:ss
+        format "        packageVersion,\n" to:ss
+        format "        releaseChannel,\n" to:ss
+        format "        releaseDate,\n" to:ss
+        format "        packageLicense,\n" to:ss
+        format "        developerTitle,\n" to:ss
+        format "        minMaxVersion,\n" to:ss
+        format "        maxMaxVersion,\n" to:ss
+        format "        homepageLink,\n" to:ss
+        format "        documentationLink,\n" to:ss
+        format "        supportLink,\n" to:ss
+        format "        packageDescription,\n" to:ss
+        format "        changelogContent\n" to:ss
+        format "    )\n\n" to:ss
+        format "    fn sampleEnsureSlash dirPath = (\n" to:ss
+        format "        if (dirPath == undefined or dirPath == \"\") do return \"\"\n" to:ss
+        format "        local normalizedDir = substituteString (dirPath as string) \"/\" \"\\\\\"\n" to:ss
+        format "        if ((substring normalizedDir normalizedDir.count 1) == \"\\\\\") do return normalizedDir\n" to:ss
+        format "        return normalizedDir + \"\\\\\"\n" to:ss
+        format "    )\n\n" to:ss
+        format "    fn sampleDataSources = (\n" to:ss
+        format "        local sourceFilePath = getSourceFileName()\n" to:ss
+        format "        if (sourceFilePath == undefined or sourceFilePath == \"\") do sourceFilePath = getThisScriptFileName()\n" to:ss
+        format "        local scriptDir = sampleEnsureSlash (getFilenamePath sourceFilePath)\n\n" to:ss
+        format "        local sources = SampleDataSourcesData()\n" to:ss
+        format "        sources.scriptDir = scriptDir\n" to:ss
+        format "        sources.manifestFilePath = scriptDir + \"manifest.ini\"\n" to:ss
+        format "        sources.settingsFilePath = scriptDir + \"maxpkg-packager.ini\"\n" to:ss
+        format "        sources.changelogFilePath = scriptDir + \"maxpkg-changelog.ini\"\n\n" to:ss
+        format "        return sources\n" to:ss
+        format "    )\n\n" to:ss
+        format "    fn sampleUnescapeContent sourceContent = (\n" to:ss
+        format "        local resultContent = sourceContent as string\n" to:ss
+        format "        resultContent = substituteString resultContent \"\\\\n\" \"\\r\\n\"\n" to:ss
+        format "        return resultContent\n" to:ss
+        format "    )\n\n" to:ss
+        format "    fn sampleReadIniEntry sources packageKey settingsKey fallbackContent:\"\" = (\n" to:ss
+        format "        local entryContent = getINISetting sources.manifestFilePath \"package\" packageKey\n" to:ss
+        format "        if (entryContent == undefined or entryContent == \"\") do entryContent = getINISetting sources.settingsFilePath \"settings\" settingsKey\n" to:ss
+        format "        if (entryContent == undefined or entryContent == \"\") do return fallbackContent\n" to:ss
+        format "        return sampleUnescapeContent entryContent\n" to:ss
+        format "    )\n\n" to:ss
+        format "    fn sampleReadChangelog sources packageVersion = (\n" to:ss
+        format "        local changelogSectionName = \"version_\" + packageVersion\n" to:ss
+        format "        local countContent = getINISetting sources.changelogFilePath changelogSectionName \"count\"\n" to:ss
+        format "        local changelogCount = try (countContent as integer) catch(0)\n" to:ss
+        format "        local changelogContent = \"\"\n\n" to:ss
+        format "        for i in 1 to changelogCount do (\n" to:ss
+        format "            local itemType = getINISetting sources.changelogFilePath changelogSectionName ((i as string) + \"_type\")\n" to:ss
+        format "            local itemContent = getINISetting sources.changelogFilePath changelogSectionName ((i as string) + \"_text\")\n" to:ss
+        format "            if (itemType != undefined and itemType != \"\" and itemContent != undefined and itemContent != \"\") do (\n" to:ss
+        format "                changelogContent += \"- [\" + itemType + \"] \" + (sampleUnescapeContent itemContent) + \"\\r\\n\"\n" to:ss
+        format "            )\n" to:ss
+        format "        )\n\n" to:ss
+        format "        if (changelogContent == \"\") do changelogContent = \"No changelog entries for this version.\"\n" to:ss
+        format "        return changelogContent\n" to:ss
+        format "    )\n\n" to:ss
+        format "    fn sampleReadPackageInfo sources = (\n" to:ss
+        format "        local packageVersion = sampleReadIniEntry sources \"version\" \"version\" fallbackContent:\"1.0.0\"\n\n" to:ss
+        format "        local packageInfo = SamplePackageInfoData()\n" to:ss
+        format "        packageInfo.packageTitle = sampleReadIniEntry sources \"name\" \"packageName\" fallbackContent:\"Package\"\n" to:ss
+        format "        packageInfo.packageVersion = packageVersion\n" to:ss
+        format "        packageInfo.releaseChannel = sampleReadIniEntry sources \"releaseChannel\" \"releaseChannel\" fallbackContent:\"stable\"\n" to:ss
+        format "        packageInfo.releaseDate = sampleReadIniEntry sources \"releaseDate\" \"releaseDate\" fallbackContent:\"\"\n" to:ss
+        format "        packageInfo.packageLicense = sampleReadIniEntry sources \"license\" \"license\" fallbackContent:\"\"\n" to:ss
+        format "        packageInfo.developerTitle = sampleReadIniEntry sources \"developerName\" \"developerName\" fallbackContent:\"\"\n" to:ss
+        format "        packageInfo.minMaxVersion = sampleReadIniEntry sources \"min3dsMax\" \"min3dsMax\" fallbackContent:\"\"\n" to:ss
+        format "        packageInfo.maxMaxVersion = sampleReadIniEntry sources \"max3dsMax\" \"max3dsMax\" fallbackContent:\"\"\n" to:ss
+        format "        packageInfo.homepageLink = sampleReadIniEntry sources \"homepage\" \"homepage\" fallbackContent:\"\"\n" to:ss
+        format "        packageInfo.documentationLink = sampleReadIniEntry sources \"documentation\" \"documentation\" fallbackContent:\"\"\n" to:ss
+        format "        packageInfo.supportLink = sampleReadIniEntry sources \"support\" \"support\" fallbackContent:\"\"\n" to:ss
+        format "        packageInfo.packageDescription = sampleReadIniEntry sources \"description\" \"description\" fallbackContent:\"\"\n" to:ss
+        format "        packageInfo.changelogContent = sampleReadChangelog sources packageVersion\n\n" to:ss
+        format "        return packageInfo\n" to:ss
+        format "    )\n\n" to:ss
+        format "    fn sampleInfoLine labelText infoContent = (\n" to:ss
+        format "        if (infoContent == undefined or infoContent == \"\") do return \"\"\n" to:ss
+        format "        return labelText + infoContent + \"\\r\\n\"\n" to:ss
+        format "    )\n\n" to:ss
+        format "    fn sampleInstallInfoContent packageInfo = (\n" to:ss
+        format "        local infoContent = packageInfo.packageTitle + \" installed successfully.\\r\\n\\r\\n\"\n\n" to:ss
+        format "        infoContent += sampleInfoLine \"Name: \" packageInfo.packageTitle\n" to:ss
+        format "        infoContent += \"Version: \" + packageInfo.packageVersion + \" (\" + packageInfo.releaseChannel + \")\\r\\n\"\n" to:ss
+        format "        infoContent += sampleInfoLine \"Release date: \" packageInfo.releaseDate\n" to:ss
+        format "        if (packageInfo.minMaxVersion != \"\" or packageInfo.maxMaxVersion != \"\") do infoContent += \"3ds Max: \" + packageInfo.minMaxVersion + \" - \" + packageInfo.maxMaxVersion + \"\\r\\n\"\n" to:ss
+        format "        infoContent += sampleInfoLine \"License: \" packageInfo.packageLicense\n" to:ss
+        format "        infoContent += sampleInfoLine \"Developer: \" packageInfo.developerTitle\n" to:ss
+        format "        infoContent += sampleInfoLine \"Homepage: \" packageInfo.homepageLink\n" to:ss
+        format "        infoContent += sampleInfoLine \"Documentation: \" packageInfo.documentationLink\n" to:ss
+        format "        infoContent += sampleInfoLine \"Support: \" packageInfo.supportLink\n" to:ss
+        format "        infoContent += \"\\r\\nDescription:\\r\\n\" + packageInfo.packageDescription + \"\\r\\n\\r\\n\"\n" to:ss
+        format "        infoContent += \"Latest changelog:\\r\\n\" + packageInfo.changelogContent\n\n" to:ss
+        format "        return infoContent\n" to:ss
+        format "    )\n\n" to:ss
+        format "    local sources = sampleDataSources()\n" to:ss
+        format "    local packageInfo = sampleReadPackageInfo sources\n" to:ss
+        format "    local installInfoContent = sampleInstallInfoContent packageInfo\n\n" to:ss
+        format "    try (destroyDialog MaxPkgSampleInstallRollout) catch()\n\n" to:ss
+        format "    rollout MaxPkgSampleInstallRollout \"Install Complete\" width:430 height:315\n" to:ss
+        format "    (\n" to:ss
+        format "        dotNetControl dncInstallInfo \"System.Windows.Forms.TextBox\" height:302 align:#left\n" to:ss
+        format "        label lblInstallSpacer \"\" align:#left across:2 offset:[0, 4]\n" to:ss
+        format "        button btnCloseInstallInfo \"Close\" width:80 height:24 align:#right offset:[0, 4]\n\n" to:ss
+        format "        on MaxPkgSampleInstallRollout open do (\n" to:ss
+        format "            local scrollBarsClass = dotNetClass \"System.Windows.Forms.ScrollBars\"\n" to:ss
+        format "            dncInstallInfo.Multiline = true\n" to:ss
+        format "            dncInstallInfo.ReadOnly = true\n" to:ss
+        format "            dncInstallInfo.WordWrap = true\n" to:ss
+        format "            dncInstallInfo.ScrollBars = scrollBarsClass.Vertical\n" to:ss
+        format "            dncInstallInfo.Text = installInfoContent\n" to:ss
+        format "        )\n\n" to:ss
+        format "        on btnCloseInstallInfo pressed do destroyDialog MaxPkgSampleInstallRollout\n" to:ss
+        format "    )\n\n" to:ss
+        format "    createDialog MaxPkgSampleInstallRollout width:450 height:350 modal:false\n" to:ss
+        format ")\n" to:ss
+
+        return ss as string
+    )
+
+    fn buildSampleUninstallScript = (
+        local ss = stringStream ""
+
+        format "(\n" to:ss
+        format "    struct SampleDataSourcesData (\n" to:ss
+        format "        scriptDir,\n" to:ss
+        format "        manifestFilePath,\n" to:ss
+        format "        settingsFilePath,\n" to:ss
+        format "        changelogFilePath\n" to:ss
+        format "    )\n\n" to:ss
+        format "    struct SamplePackageInfoData (\n" to:ss
+        format "        packageTitle,\n" to:ss
+        format "        packageVersion,\n" to:ss
+        format "        releaseChannel,\n" to:ss
+        format "        releaseDate,\n" to:ss
+        format "        packageLicense,\n" to:ss
+        format "        developerTitle,\n" to:ss
+        format "        minMaxVersion,\n" to:ss
+        format "        maxMaxVersion,\n" to:ss
+        format "        homepageLink,\n" to:ss
+        format "        documentationLink,\n" to:ss
+        format "        supportLink,\n" to:ss
+        format "        packageDescription,\n" to:ss
+        format "        changelogContent\n" to:ss
+        format "    )\n\n" to:ss
+        format "    fn sampleEnsureSlash dirPath = (\n" to:ss
+        format "        if (dirPath == undefined or dirPath == \"\") do return \"\"\n" to:ss
+        format "        local normalizedDir = substituteString (dirPath as string) \"/\" \"\\\\\"\n" to:ss
+        format "        if ((substring normalizedDir normalizedDir.count 1) == \"\\\\\") do return normalizedDir\n" to:ss
+        format "        return normalizedDir + \"\\\\\"\n" to:ss
+        format "    )\n\n" to:ss
+        format "    fn sampleDataSources = (\n" to:ss
+        format "        local sourceFilePath = getSourceFileName()\n" to:ss
+        format "        if (sourceFilePath == undefined or sourceFilePath == \"\") do sourceFilePath = getThisScriptFileName()\n" to:ss
+        format "        local scriptDir = sampleEnsureSlash (getFilenamePath sourceFilePath)\n\n" to:ss
+        format "        local sources = SampleDataSourcesData()\n" to:ss
+        format "        sources.scriptDir = scriptDir\n" to:ss
+        format "        sources.manifestFilePath = scriptDir + \"manifest.ini\"\n" to:ss
+        format "        sources.settingsFilePath = scriptDir + \"maxpkg-packager.ini\"\n" to:ss
+        format "        sources.changelogFilePath = scriptDir + \"maxpkg-changelog.ini\"\n\n" to:ss
+        format "        return sources\n" to:ss
+        format "    )\n\n" to:ss
+        format "    fn sampleUnescapeContent sourceContent = (\n" to:ss
+        format "        local resultContent = sourceContent as string\n" to:ss
+        format "        resultContent = substituteString resultContent \"\\\\n\" \"\\r\\n\"\n" to:ss
+        format "        return resultContent\n" to:ss
+        format "    )\n\n" to:ss
+        format "    fn sampleReadIniEntry sources packageKey settingsKey fallbackContent:\"\" = (\n" to:ss
+        format "        local entryContent = getINISetting sources.manifestFilePath \"package\" packageKey\n" to:ss
+        format "        if (entryContent == undefined or entryContent == \"\") do entryContent = getINISetting sources.settingsFilePath \"settings\" settingsKey\n" to:ss
+        format "        if (entryContent == undefined or entryContent == \"\") do return fallbackContent\n" to:ss
+        format "        return sampleUnescapeContent entryContent\n" to:ss
+        format "    )\n\n" to:ss
+        format "    fn sampleReadChangelog sources packageVersion = (\n" to:ss
+        format "        local changelogSectionName = \"version_\" + packageVersion\n" to:ss
+        format "        local countContent = getINISetting sources.changelogFilePath changelogSectionName \"count\"\n" to:ss
+        format "        local changelogCount = try (countContent as integer) catch(0)\n" to:ss
+        format "        local changelogContent = \"\"\n\n" to:ss
+        format "        for i in 1 to changelogCount do (\n" to:ss
+        format "            local itemType = getINISetting sources.changelogFilePath changelogSectionName ((i as string) + \"_type\")\n" to:ss
+        format "            local itemContent = getINISetting sources.changelogFilePath changelogSectionName ((i as string) + \"_text\")\n" to:ss
+        format "            if (itemType != undefined and itemType != \"\" and itemContent != undefined and itemContent != \"\") do (\n" to:ss
+        format "                changelogContent += \"- [\" + itemType + \"] \" + (sampleUnescapeContent itemContent) + \"\\r\\n\"\n" to:ss
+        format "            )\n" to:ss
+        format "        )\n\n" to:ss
+        format "        if (changelogContent == \"\") do changelogContent = \"No changelog entries for this version.\"\n" to:ss
+        format "        return changelogContent\n" to:ss
+        format "    )\n\n" to:ss
+        format "    fn sampleReadPackageInfo sources = (\n" to:ss
+        format "        local packageVersion = sampleReadIniEntry sources \"version\" \"version\" fallbackContent:\"1.0.0\"\n\n" to:ss
+        format "        local packageInfo = SamplePackageInfoData()\n" to:ss
+        format "        packageInfo.packageTitle = sampleReadIniEntry sources \"name\" \"packageName\" fallbackContent:\"Package\"\n" to:ss
+        format "        packageInfo.packageVersion = packageVersion\n" to:ss
+        format "        packageInfo.releaseChannel = sampleReadIniEntry sources \"releaseChannel\" \"releaseChannel\" fallbackContent:\"stable\"\n" to:ss
+        format "        packageInfo.releaseDate = sampleReadIniEntry sources \"releaseDate\" \"releaseDate\" fallbackContent:\"\"\n" to:ss
+        format "        packageInfo.packageLicense = sampleReadIniEntry sources \"license\" \"license\" fallbackContent:\"\"\n" to:ss
+        format "        packageInfo.developerTitle = sampleReadIniEntry sources \"developerName\" \"developerName\" fallbackContent:\"\"\n" to:ss
+        format "        packageInfo.minMaxVersion = sampleReadIniEntry sources \"min3dsMax\" \"min3dsMax\" fallbackContent:\"\"\n" to:ss
+        format "        packageInfo.maxMaxVersion = sampleReadIniEntry sources \"max3dsMax\" \"max3dsMax\" fallbackContent:\"\"\n" to:ss
+        format "        packageInfo.homepageLink = sampleReadIniEntry sources \"homepage\" \"homepage\" fallbackContent:\"\"\n" to:ss
+        format "        packageInfo.documentationLink = sampleReadIniEntry sources \"documentation\" \"documentation\" fallbackContent:\"\"\n" to:ss
+        format "        packageInfo.supportLink = sampleReadIniEntry sources \"support\" \"support\" fallbackContent:\"\"\n" to:ss
+        format "        packageInfo.packageDescription = sampleReadIniEntry sources \"description\" \"description\" fallbackContent:\"\"\n" to:ss
+        format "        packageInfo.changelogContent = sampleReadChangelog sources packageVersion\n\n" to:ss
+        format "        return packageInfo\n" to:ss
+        format "    )\n\n" to:ss
+        format "    fn sampleInfoLine labelText infoContent = (\n" to:ss
+        format "        if (infoContent == undefined or infoContent == \"\") do return \"\"\n" to:ss
+        format "        return labelText + infoContent + \"\\r\\n\"\n" to:ss
+        format "    )\n\n" to:ss
+        format "    fn sampleUninstallInfoContent packageInfo = (\n" to:ss
+        format "        local infoContent = packageInfo.packageTitle + \" has been completely removed.\"\n\n" to:ss
+        format "        return infoContent\n" to:ss
+        format "    )\n\n" to:ss
+        format "    local sources = sampleDataSources()\n" to:ss
+        format "    local packageInfo = sampleReadPackageInfo sources\n" to:ss
+        format "    local uninstallInfoContent = sampleUninstallInfoContent packageInfo\n\n" to:ss
+        format "    try (destroyDialog MaxPkgSampleUninstallRollout) catch()\n\n" to:ss
+        format "    rollout MaxPkgSampleUninstallRollout \"Uninstall Complete\" width:430 height:315\n" to:ss
+        format "    (\n" to:ss
+        format "        dotNetControl dncUninstallInfo \"System.Windows.Forms.TextBox\" height:302 align:#left\n" to:ss
+        format "        label lblUninstallSpacer \"\" align:#left across:2 offset:[0, 4]\n" to:ss
+        format "        button btnCloseUninstallInfo \"Close\" width:80 height:24 align:#right offset:[0, 4]\n\n" to:ss
+        format "        on MaxPkgSampleUninstallRollout open do (\n" to:ss
+        format "            local scrollBarsClass = dotNetClass \"System.Windows.Forms.ScrollBars\"\n" to:ss
+        format "            dncUninstallInfo.Multiline = true\n" to:ss
+        format "            dncUninstallInfo.ReadOnly = true\n" to:ss
+        format "            dncUninstallInfo.WordWrap = true\n" to:ss
+        format "            dncUninstallInfo.ScrollBars = scrollBarsClass.Vertical\n" to:ss
+        format "            dncUninstallInfo.Text = uninstallInfoContent\n" to:ss
+        format "        )\n\n" to:ss
+        format "        on btnCloseUninstallInfo pressed do destroyDialog MaxPkgSampleUninstallRollout\n" to:ss
+        format "    )\n\n" to:ss
+        format "    createDialog MaxPkgSampleUninstallRollout width:450 height:350 modal:false\n" to:ss
+        format ")\n" to:ss
+
+        return ss as string
+    )
+
+    fn createSamplePackageScript scriptFileName sampleContent = (
+        local sampleFilePath = normalizePath ((ensureTrailingSlash rootDir) + scriptFileName)
+
+        if (doesFileExist sampleFilePath) do (
+            messageBox (scriptFileName + " already exists.") title:"MaxPkg Packager"
+            return false
+        )
+
+        if (not (writeTextFile sampleFilePath sampleContent)) do (
+            messageBox ("Could not create " + scriptFileName + ".") title:"MaxPkg Packager"
+            return false
+        )
+
+        addPackageFile sampleFilePath
+        addLog "OK" (scriptFileName + " created")
+        messageBox (scriptFileName + " created successfully.\n\nLocation:\n" + sampleFilePath) title:"MaxPkg Packager"
+        return true
+    )
+
     fn buildMzpRunScript = (
         local ss = stringStream ""
 
@@ -1138,11 +1407,14 @@
 			
 			listBox lbFiles "" height:7
 			
-			button btnAddFile "Add Files" width: 80 align: #left across: 5
-			button btnAddFolder "Add Folder" width:80 align: #left offset: [-55, 0]
-			button btnScanRoot "Scan Folder" width:80 align: #left offset: [-110, 0]
-			button btnRemoveFile "Remove" width:80 align: #right offset: [55, 0]
-			button btnClearFiles "Clear" width:80 align: #right 				
+			button btnAddFile "[+] Add Files" width: 80 align: #left across: 6
+			button btnAddFolder "Add Folder" width:80 align: #left offset: [-31, 0]
+			button btnScanRoot "Scan Folder" width:80 align: #left offset: [-62, 0]			
+			button btnCreateSampleInstall "Create sample install.ms" width:178 align:#left offset:[-93, 0]
+            button btnCreateSampleUninstall "Create sample uninstall.ms" width:178 align:#left offset:[-27, 0]			
+			button btnRemoveFile "[-] Remove" width:80 align: #right
+
+         
 		)
 		
 		group "Runtime" (
@@ -1371,6 +1643,20 @@
             autoSaveSettings()
         )
 
+        on btnCreateSampleInstall pressed do (
+            if (createSamplePackageScript "install.ms" (buildSampleInstallScript())) do (
+                refreshFiles()
+                autoSaveSettings()
+            )
+        )
+
+        on btnCreateSampleUninstall pressed do (
+            if (createSamplePackageScript "uninstall.ms" (buildSampleUninstallScript())) do (
+                refreshFiles()
+                autoSaveSettings()
+            )
+        )
+
         on btnRemoveFile pressed do (
             if (lbFiles.selection > 0 and lbFiles.selection <= packageFiles.count) do (
                 deleteItem packageFiles lbFiles.selection
@@ -1378,14 +1664,6 @@
 
             refreshFiles()
             autoSaveSettings()
-        )
-
-        on btnClearFiles pressed do (
-            if (queryBox "Clear package files list?" title:"MaxPkg Packager") do (
-                packageFiles = #()
-                refreshFiles()
-                autoSaveSettings()
-            )
         )
 
         on btnAddChange pressed do (
