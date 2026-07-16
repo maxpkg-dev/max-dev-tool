@@ -1,3 +1,4 @@
 maxpkg-packager.ini
 maxpkg-changelog.ini
 test.ms
+/dist
