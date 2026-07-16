@@ -13,14 +13,16 @@
     local PACKAGER_VERSION = "1.0.0"
     local PACKAGER_NAME = "maxpkg-packager"
 
-    local scriptPath = getThisScriptFilename()
+    local scriptPath = getFilenamePath (getThisScriptFilename())
     if (scriptPath == undefined) do scriptPath = (getDir #scripts) + "\\maxpkg-packager.ms"
 
-    local rootDir = getFilenamePath scriptPath
+    local rootDir = scriptPath
     local iniPath = rootDir + "maxpkg-packager.ini"
+    local changelogIniPath = rootDir + "maxpkg-changelog.ini"
 
     local packageFiles = #()
     local changelogItems = #()
+    local activeChangelogVersion = "1.0.0"
     local logItems = #()
     local isLoadingSettings = false
     global MaxPkgPackagerFloater
@@ -30,6 +32,8 @@
     local showLogWindow
     local refreshLogWindow
     local closeLogWindow
+    local confirmGuidChange
+    local isGuidChangeConfirmed = false
 
     fn trimString s tag:" " = (
         if (s == undefined) do return ""
@@ -88,7 +92,7 @@
 
     fn addLog level logMessage = (
         append logItems ("[" + level + "] " + logMessage)
-        try (showLogWindow()) catch()
+        try (refreshLogWindow()) catch()
         return true
     )
 
@@ -230,6 +234,20 @@
         return channel
     )
 
+    fn copySvgIconToRoot sourceFilePath = (
+        local sourceIconFile = normalizePath sourceFilePath
+        local rootIconFile = normalizePath ((ensureTrailingSlash rootDir) + (filenameFromPath sourceIconFile))
+
+        if (sourceIconFile == "") do return ""
+        if (not (doesFileExist sourceIconFile)) do return ""
+
+        if ((lowerString sourceIconFile) != (lowerString rootIconFile)) do (
+            if (not (copyFile sourceIconFile rootIconFile)) do return ""
+        )
+
+        return rootIconFile
+    )
+
     fn isValidGuid s = (
         local guidText = trimString s
         local dashPositions = #(9, 14, 19, 24)
@@ -292,6 +310,7 @@
         if (matchPattern n pattern:"*.mzp" ignoreCase:true) do return true
         if (n == "maxpkg-packager.ms") do return true
         if (n == "maxpkg-packager.ini") do return true
+        if (n == "maxpkg-changelog.ini") do return true
 
         return false
     )
@@ -472,6 +491,77 @@
         return true
     )
 
+    fn changelogSectionFromVersion versionString = (
+        local normalizedVersion = trimString versionString
+
+        if (normalizedVersion == "") do normalizedVersion = "1.0.0"
+
+        return "version_" + normalizedVersion
+    )
+
+    fn saveChangelogForVersion versionString = (
+        local normalizedVersion = trimString versionString
+        local changelogSectionName = changelogSectionFromVersion normalizedVersion
+
+        if (normalizedVersion == "") do normalizedVersion = "1.0.0"
+
+        try (delIniSetting changelogIniPath changelogSectionName) catch()
+
+        setINISetting changelogIniPath changelogSectionName "version" normalizedVersion
+        setINISetting changelogIniPath changelogSectionName "count" (changelogItems.count as string)
+
+        for i in 1 to changelogItems.count do (
+            setINISetting changelogIniPath changelogSectionName ((i as string) + "_type") (escapeIniValue changelogItems[i][1])
+            setINISetting changelogIniPath changelogSectionName ((i as string) + "_text") (escapeIniValue changelogItems[i][2])
+        )
+
+        return true
+    )
+
+    fn saveCurrentChangelog = (
+        return saveChangelogForVersion activeChangelogVersion
+    )
+
+    fn loadChangelogForVersion versionString = (
+        local normalizedVersion = trimString versionString
+        local changelogSectionName = changelogSectionFromVersion normalizedVersion
+        local countString = getINISetting changelogIniPath changelogSectionName "count"
+        local changelogCount = 0
+
+        if (countString == "") do return false
+
+        changelogCount = try (countString as integer) catch(0)
+        changelogItems = #()
+
+        for i in 1 to changelogCount do (
+            local itemType = unescapeIniValue (getINISetting changelogIniPath changelogSectionName ((i as string) + "_type"))
+            local itemContent = unescapeIniValue (getINISetting changelogIniPath changelogSectionName ((i as string) + "_text"))
+
+            if (itemType != "" and itemContent != "") do (
+                append changelogItems #(itemType, itemContent)
+            )
+        )
+
+        return true
+    )
+
+    fn loadLegacyChangelogFromSettings = (
+        local changelogCount = iniGetInt "count" iniSection:"changelog" defaultValue:0
+
+        changelogItems = #()
+
+        for i in 1 to changelogCount do (
+            local itemType = iniGet ((i as string) + "_type") iniSection:"changelog"
+            local itemContent = iniGet ((i as string) + "_text") iniSection:"changelog"
+
+            if (itemType != "" and itemContent != "") do (
+                append changelogItems #(itemType, itemContent)
+            )
+        )
+
+        return changelogCount > 0
+    )
+
     fn saveSettings ui shouldLog:false = (
         if (isLoadingSettings) do return false
 
@@ -504,12 +594,7 @@
             iniSet ((i as string) + "_rel") packageFiles[i][2] iniSection:"files"
         )
 
-        iniSetRaw "count" changelogItems.count iniSection:"changelog"
-
-        for i in 1 to changelogItems.count do (
-            iniSet ((i as string) + "_type") changelogItems[i][1] iniSection:"changelog"
-            iniSet ((i as string) + "_text") changelogItems[i][2] iniSection:"changelog"
-        )
+        saveCurrentChangelog()
 
         if (shouldLog) do addLog "OK" "INI saved"
 
@@ -562,17 +647,10 @@
             )
         )
 
-        changelogItems = #()
+        activeChangelogVersion = buildVersionString ui
 
-        local changelogCount = iniGetInt "count" iniSection:"changelog" defaultValue:0
-
-        for i in 1 to changelogCount do (
-            local itemType = iniGet ((i as string) + "_type") iniSection:"changelog"
-            local itemText = iniGet ((i as string) + "_text") iniSection:"changelog"
-
-            if (itemType != "" and itemText != "") do (
-                append changelogItems #(itemType, itemText)
-            )
+        if (not (loadChangelogForVersion activeChangelogVersion)) do (
+            if (loadLegacyChangelogFromSettings()) do saveCurrentChangelog()
         )
 
         --addLog "OK" "INI loaded"
@@ -915,6 +993,12 @@
         writeTextFile (buildRoot + "manifest.json") (buildManifestJson ui)
         addLog "OK" "manifest.json generated"
 
+        saveCurrentChangelog()
+        if (doesFileExist changelogIniPath) do (
+            copyFile changelogIniPath (buildRoot + "maxpkg-changelog.ini")
+            addLog "OK" "maxpkg-changelog.ini copied"
+        )
+
         writeTextFile (buildRoot + "mzp.run") (buildMzpRunScript())
         addLog "OK" "mzp.run generated"
 
@@ -948,6 +1032,45 @@
     isLogDialogOpen = false
 
     try (closeRolloutFloater MaxPkgPackagerFloater) catch()
+
+    rollout MaxPkgGuidChangeConfirmRollout "Confirm GUID Change" width:360 height:150
+    (
+        label lblGuidChangeWarning "Changing Package GUID creates a new package identity." align:#left
+        label lblGuidChangeInstruction "Type CHANGE to generate a new GUID." align:#left
+        editText edtGuidChangePhrase "" width:330 align:#left
+
+        button btnConfirmGuidChange "OK" width:80 height:24 enabled:false align:#left across:2
+        button btnCancelGuidChange "Cancel" width:80 height:24 align:#right
+
+        on MaxPkgGuidChangeConfirmRollout open do (
+            edtGuidChangePhrase.text = ""
+            btnConfirmGuidChange.enabled = false
+            setFocus edtGuidChangePhrase
+        )
+
+        on edtGuidChangePhrase changed fieldText do (
+            btnConfirmGuidChange.enabled = ((toUpper fieldText) == "CHANGE")
+        )
+
+        on btnConfirmGuidChange pressed do (
+            if ((toUpper edtGuidChangePhrase.text) == "CHANGE") do (
+                isGuidChangeConfirmed = true
+                destroyDialog MaxPkgGuidChangeConfirmRollout
+            )
+        )
+
+        on btnCancelGuidChange pressed do (
+            isGuidChangeConfirmed = false
+            destroyDialog MaxPkgGuidChangeConfirmRollout
+        )
+    )
+
+    fn confirmGuidChange = (
+        isGuidChangeConfirmed = false
+        try (destroyDialog MaxPkgGuidChangeConfirmRollout) catch()
+        createDialog MaxPkgGuidChangeConfirmRollout width:380 height:170 modal:true
+        return isGuidChangeConfirmed
+    )
 
     rollout MaxPkgPackagerRollout "Packager" width:740 height:1070
     (
@@ -1079,6 +1202,22 @@
             return true
         )
 
+        fn switchChangelogVersion = (
+            if (isLoadingSettings) do return false
+
+            saveChangelogForVersion activeChangelogVersion
+            activeChangelogVersion = buildVersionString MaxPkgPackagerRollout
+
+            if (not (loadChangelogForVersion activeChangelogVersion)) do (
+                changelogItems = #()
+                saveCurrentChangelog()
+            )
+
+            refreshChangelog()
+            saveSettings MaxPkgPackagerRollout
+            return true
+        )
+
 
         on MaxPkgPackagerRollout open do (
             isLoadingSettings = true
@@ -1094,6 +1233,12 @@
             )
 
             syncVersionState()
+            activeChangelogVersion = buildVersionString MaxPkgPackagerRollout
+            if (not (loadChangelogForVersion activeChangelogVersion)) do (
+                changelogItems = #()
+                saveCurrentChangelog()
+            )
+
             refreshFiles()
             refreshChangelog()
             refreshLog()
@@ -1106,9 +1251,9 @@
         on edtDescription changed fieldText do autoSaveSettings()
         on ddlLicense selected selectedIndex do autoSaveSettings()
         on edtLicenseUrl changed fieldText do autoSaveSettings()
-        on ddlVersionMajor selected selectedIndex do autoSaveSettings()
-        on ddlVersionMinor selected selectedIndex do autoSaveSettings()
-        on ddlVersionPatch selected selectedIndex do autoSaveSettings()
+        on ddlVersionMajor selected selectedIndex do switchChangelogVersion()
+        on ddlVersionMinor selected selectedIndex do switchChangelogVersion()
+        on ddlVersionPatch selected selectedIndex do switchChangelogVersion()
         on ddlReleaseChannel selected selectedIndex do autoSaveSettings()
         on edtReleaseDate changed fieldText do autoSaveSettings()
         on ddlMinMax selected selectedIndex do autoSaveSettings()
@@ -1126,7 +1271,7 @@
             if ((trimString edtGuid.text) == "") then (
                 edtGuid.text = newGuidString()
             ) else (
-                if (queryBox "Package GUID already exists. Generate a new technical identity?" title:"MaxPkg Packager") do (
+                if (confirmGuidChange()) do (
                     edtGuid.text = newGuidString()
                 )
             )
@@ -1155,9 +1300,16 @@
 
             if (filePath != undefined) do (
                 if (isValidSafeSvg filePath) then (
-                    edtIcon.text = filePath
-                    addLog "OK" "SVG icon validated"
-                    autoSaveSettings()
+                    local rootIconFile = copySvgIconToRoot filePath
+
+                    if (rootIconFile != "") then (
+                        edtIcon.text = rootIconFile
+                        addLog "OK" "SVG icon copied to root"
+                        autoSaveSettings()
+                    ) else (
+                        messageBox "Could not copy SVG icon to root folder." title:"MaxPkg Packager"
+                        addLog "ERROR" "Could not copy SVG icon to root folder."
+                    )
                 ) else (
                     messageBox "Selected icon is not a valid safe SVG file." title:"MaxPkg Packager"
                     addLog "ERROR" "Selected icon is not a valid safe SVG file."
@@ -1187,7 +1339,7 @@
         )
 
         on btnAddFile pressed do (
-            local filePath = getOpenFileName caption:"Add package file" types:"Package Files (*.*)|*.*|"
+            local filePath = getOpenFileName caption:"Add package file" filename:(rootDir + "*.*") types:"Package Files (*.*)|*.*|"
 
             if (filePath != undefined) do (
                 if (addPackageFile filePath) do (
@@ -1243,6 +1395,7 @@
                 append changelogItems #((getDropDownText ddlChangeType), changeValue)
                 edtChangeText.text = ""
                 refreshChangelog()
+                saveCurrentChangelog()
                 autoSaveSettings()
             )
         )
@@ -1251,6 +1404,7 @@
             if (lbChangelog.selection > 0) do (
                 changelogItems[lbChangelog.selection] = #((getDropDownText ddlChangeType), (trimString edtChangeText.text))
                 refreshChangelog()
+                saveCurrentChangelog()
                 autoSaveSettings()
             )
         )
@@ -1259,6 +1413,7 @@
             if (lbChangelog.selection > 0) do (
                 deleteItem changelogItems lbChangelog.selection
                 refreshChangelog()
+                saveCurrentChangelog()
                 autoSaveSettings()
             )
         )
@@ -1274,12 +1429,15 @@
         on btnValidate pressed do (
             saveSettings MaxPkgPackagerRollout
             validateSettings MaxPkgPackagerRollout
-            refreshLog()
+            showLogWindow()
         )        
 
         on btnBuild pressed do (
             buildPackage MaxPkgPackagerRollout
-            refreshLog()
+            showLogWindow()
+			if (edtOutput.text != "" and doesDirectoryExist edtOutput.text) do (
+				ShellLaunch edtOutput.text ""
+			)
         )
 
         on MaxPkgPackagerRollout close do (
@@ -1380,7 +1538,7 @@
         )
     )
 
-    MaxPkgPackagerFloater = newRolloutFloater "MaxPkg Packager" 760 900
+    MaxPkgPackagerFloater = newRolloutFloater "MaxPkg Packager" 760 805
     addRollout MaxPkgPackagerRollout MaxPkgPackagerFloater rolledUp:false
     addRollout MaxPkgPackagerAboutRollout MaxPkgPackagerFloater rolledUp:true
 )
