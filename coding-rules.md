@@ -38,6 +38,25 @@ if (isUploaded) then (
 )
 ```
 
+## Strings
+
+- Never use `format` for string concatenation.
+- Use `+` to build strings from parts, especially for file paths, generated code, command text, and messages.
+- Use `format` only when writing formatted output to a stream or listener and the `%` placeholder behavior is intentional and easy to verify.
+- When generating code as strings, prefer explicit concatenation inside the generated code instead of embedding `%` placeholders inside quoted path fragments.
+
+Example:
+
+```maxscript
+local packageDir = (getDir #temp) + "\\" + packageGuid + "\\"
+```
+
+Avoid:
+
+```maxscript
+format "local packageDir = (getDir #temp) + \"\\%\\\"\n" packageGuid to:ss
+```
+
 ## Data Bundles And Structs
 
 - When several values describe one logical runtime object, pass them as a small named `struct` instead of passing many separate arguments.

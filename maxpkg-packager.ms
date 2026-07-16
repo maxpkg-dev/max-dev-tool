@@ -1104,11 +1104,15 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         format "    (\n" to:ss
         format "        try\n" to:ss
         format "        (\n" to:ss
-        format "            local packageDir = (getDir #temp) + \"\\\\maxpkg\\\\packages\\\\%\\\\\"\n" guid to:ss
+        format "            local packageGuid = \"%\"\n" guid to:ss
+        format "            local packageDir = (getDir #temp) + \"\\\\\" + packageGuid + \"\\\\\"\n" to:ss
         format "            local manifestIni = packageDir + \"manifest.ini\"\n" to:ss
+        format "            if (not (doesFileExist manifestIni)) do throw (\"Package manifest was not found:\\n\" + manifestIni)\n" to:ss
         format "            local runtime = getINISetting manifestIni \"package\" \"runtime\"\n" to:ss
         format "            local entry = getINISetting manifestIni \"package\" \"entry\"\n" to:ss
+        format "            if (entry == undefined or entry == \"\") do throw \"Package entry file is empty.\"\n" to:ss
         format "            local entryPath = packageDir + entry\n" to:ss
+        format "            if (not (doesFileExist entryPath)) do throw (\"Package entry file was not found:\\n\" + entryPath)\n" to:ss
         format "\n" to:ss
         format "            if (runtime == \"python\") then\n" to:ss
         format "            (\n" to:ss
@@ -1397,83 +1401,51 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         return true
     )
 
-    fn buildMzpRunScript = (
+    fn mzpQuotedString sourceContent = (
+        local quotedContent = trimString sourceContent
+        quotedContent = substituteString quotedContent "\"" "'"
+        return "\"" + quotedContent + "\""
+    )
+
+    fn buildMzpRunScript ui = (
+        local ss = stringStream ""
+        local packageTitle = trimString ui.edtName.text
+        local packageGuid = trimString ui.edtGuid.text
+        local entryScriptFile = "mzp.run.ms"
+
+        if (packageTitle == "") do packageTitle = packageGuid
+
+        format "name %\n" (mzpQuotedString packageTitle) to:ss
+        format "extract to %\n" (mzpQuotedString ("$temp\\" + packageGuid)) to:ss
+        format "drop %\n" (mzpQuotedString entryScriptFile) to:ss
+        format "run %\n" (mzpQuotedString entryScriptFile) to:ss
+
+        return ss as string
+    )
+
+    fn buildMzpEntryScript = (
         local ss = stringStream ""
 
         format "(\n" to:ss
-        format "    fn mpEnsureSlash p = (\n" to:ss
-        format "        if ((substring p p.count 1) == \"\\\\\") then return p\n" to:ss
-        format "        return p + \"\\\\\"\n" to:ss
+        format "    fn maxPkgEntryEnsureSlash folderPath = (\n" to:ss
+        format "        if (folderPath == undefined or folderPath == \"\") do return \"\"\n" to:ss
+        format "        if ((substring folderPath folderPath.count 1) == \"\\\\\") do return folderPath\n" to:ss
+        format "        return folderPath + \"\\\\\"\n" to:ss
         format "    )\n\n" to:ss
-        format "    fn mpDirExists p = (\n" to:ss
-        format "        try (return (dotNetClass \"System.IO.Directory\").Exists p) catch (return doesFileExist p)\n" to:ss
-        format "    )\n\n" to:ss
-        format "    fn mpEnsureDir p = (\n" to:ss
-        format "        if (mpDirExists p) then return true\n" to:ss
-        format "        return makeDir p all:true\n" to:ss
-        format "    )\n\n" to:ss
-        format "    fn mpDeleteDir p = (\n" to:ss
-        format "        if (mpDirExists p) do (\n" to:ss
-        format "            try ((dotNetClass \"System.IO.Directory\").Delete p true) catch()\n" to:ss
-        format "        )\n" to:ss
-        format "        return true\n" to:ss
-        format "    )\n\n" to:ss
-        format "    fn mpMoveDir source target = (\n" to:ss
-        format "        try ((dotNetClass \"System.IO.Directory\").Move source target) catch (renameFile source target)\n" to:ss
-        format "        return true\n" to:ss
-        format "    )\n\n" to:ss
-        format "    fn mpCopyDir source target = (\n" to:ss
-        format "        local src = mpEnsureSlash source\n" to:ss
-        format "        local dst = mpEnsureSlash target\n" to:ss
-        format "        local files = (dotNetClass \"System.IO.Directory\").GetFiles src \"*\" (dotNetClass \"System.IO.SearchOption\").AllDirectories\n\n" to:ss
-        format "        mpEnsureDir dst\n\n" to:ss
-        format "        for filePath in files do (\n" to:ss
-        format "            local sourcePath = filePath as string\n" to:ss
-        format "            local rel = substring sourcePath (src.count + 1) (sourcePath.count - src.count)\n" to:ss
-        format "            local targetPath = dst + rel\n\n" to:ss
-        format "            mpEnsureDir (getFilenamePath targetPath)\n" to:ss
-        format "            copyFile sourcePath targetPath\n" to:ss
-        format "        )\n\n" to:ss
-        format "        return true\n" to:ss
-        format "    )\n\n" to:ss
-        format "    try (\n" to:ss
-        format "        local sourceDir = mpEnsureSlash (getFilenamePath (getSourceFileName()))\n" to:ss
-        format "        local manifestIni = sourceDir + \"manifest.ini\"\n" to:ss
-        format "        local packageGuid = getINISetting manifestIni \"package\" \"packageGuid\"\n" to:ss
-        format "        local createMacroButton = toLower (getINISetting manifestIni \"package\" \"createMacroButton\")\n" to:ss
-        format "        local installScript = getINISetting manifestIni \"package\" \"installScript\"\n\n" to:ss
-        format "        if (packageGuid == undefined or packageGuid == \"\") do throw \"manifest.ini is missing packageGuid.\"\n\n" to:ss
-        format "        local packageRoot = mpEnsureSlash ((getDir #temp) + \"\\\\maxpkg\\\\packages\\\\\" + packageGuid)\n" to:ss
-        format "        local backupRoot = packageRoot + \".backup\"\n\n" to:ss
-        format "        if (mpDirExists backupRoot) do mpDeleteDir backupRoot\n" to:ss
-        format "        if (mpDirExists packageRoot) do mpMoveDir packageRoot backupRoot\n\n" to:ss
+        format "    fn maxPkgEntryRunOptionalScript scriptFilePath = (\n" to:ss
+        format "        if (scriptFilePath == undefined or scriptFilePath == \"\") do return false\n" to:ss
+        format "        if (not (doesFileExist scriptFilePath)) do return true\n\n" to:ss
         format "        try (\n" to:ss
-        format "            mpCopyDir sourceDir packageRoot\n\n" to:ss
-        format "            if (doesFileExist (packageRoot + \"mzp.run\")) do deleteFile (packageRoot + \"mzp.run\")\n\n" to:ss
-        format "            if (createMacroButton == \"true\") do (\n" to:ss
-        format "                local mcrSource = packageRoot + \"maxpkg-button.mcr\"\n\n" to:ss
-        format "                if (doesFileExist mcrSource) do (\n" to:ss
-        format "                    local mcrTarget = (mpEnsureSlash (getDir #userMacros)) + \"maxpkg-\" + packageGuid + \".mcr\"\n" to:ss
-        format "                    copyFile mcrSource mcrTarget\n" to:ss
-        format "                    fileIn mcrTarget\n" to:ss
-        format "                )\n" to:ss
-        format "            )\n\n" to:ss
-        format "            if (installScript != undefined and installScript != \"\") do (\n" to:ss
-        format "                local installPath = packageRoot + installScript\n" to:ss
-        format "                if (doesFileExist installPath) do fileIn installPath\n" to:ss
-        format "            )\n\n" to:ss
-        format "            if (mpDirExists backupRoot) do mpDeleteDir backupRoot\n\n" to:ss
-        format "            try (if (MaxPkg != undefined) do MaxPkg.rebuildToolbar()) catch()\n" to:ss
-        format "            try (if (MaxPkgToolbar != undefined) do MaxPkgToolbar.refresh()) catch()\n\n" to:ss
-        format "            messageBox (\"MaxPkg package installed.\\\\n\\\\n\" + packageGuid) title:\"MaxPkg\"\n" to:ss
+        format "            fileIn scriptFilePath\n" to:ss
+        format "            return true\n" to:ss
         format "        ) catch (\n" to:ss
-        format "            if (mpDirExists packageRoot) do mpDeleteDir packageRoot\n" to:ss
-        format "            if (mpDirExists backupRoot) do mpMoveDir backupRoot packageRoot\n" to:ss
-        format "            throw getCurrentException()\n" to:ss
+        format "            messageBox (\"Could not run package script:\\n\" + scriptFilePath + \"\\n\\n\" + getCurrentException()) title:\"MaxPkg\"\n" to:ss
+        format "            return false\n" to:ss
         format "        )\n" to:ss
-        format "    ) catch (\n" to:ss
-        format "        messageBox (\"MaxPkg package install failed.\\\\n\\\\n\" + getCurrentException()) title:\"MaxPkg\"\n" to:ss
-        format "    )\n" to:ss
+        format "    )\n\n" to:ss
+        format "    local entryFolder = maxPkgEntryEnsureSlash (getFilenamePath (getSourceFileName()))\n\n" to:ss
+        format "    maxPkgEntryRunOptionalScript (entryFolder + \"maxpkg-button.mcr\")\n" to:ss
+        format "    maxPkgEntryRunOptionalScript (entryFolder + \"install.ms\")\n" to:ss
         format ")\n" to:ss
 
         return ss as string
@@ -1499,6 +1471,15 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         )
     )
 
+    fn cleanupBuildFolder buildFolder = (
+        if (buildFolder == undefined) do return false
+        if (buildFolder == "") do return false
+        if (not (directoryExists buildFolder)) do return true
+
+        deleteDirectory buildFolder
+        return true
+    )
+
     fn buildPackage ui = (
         saveSettings ui
 
@@ -1508,53 +1489,63 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         local outputFolder = ensureTrailingSlash ui.edtOutput.text
         local buildRoot = ensureTrailingSlash ((getDir #temp) + "\\maxpkg-packager-build-" + guid)
         local outputFile = outputFolder + guid + ".mzp"
+        local isPackageBuilt = false
 
-        deleteDirectory buildRoot
-        ensureDirectory buildRoot
+        try (
+            deleteDirectory buildRoot
+            ensureDirectory buildRoot
 
-        writeTextFile (buildRoot + "manifest.ini") (buildManifestIni ui)
-        addLog "OK" "manifest.ini generated"
+            writeTextFile (buildRoot + "manifest.ini") (buildManifestIni ui)
+            addLog "OK" "manifest.ini generated"
 
-        writeTextFile (buildRoot + "manifest.json") (buildManifestJson ui)
-        addLog "OK" "manifest.json generated"
+            writeTextFile (buildRoot + "manifest.json") (buildManifestJson ui)
+            addLog "OK" "manifest.json generated"
 
-        saveCurrentChangelog()
-        if (doesFileExist changelogIniPath) do (
-            copyFile changelogIniPath (buildRoot + "maxpkg-changelog.ini")
-            addLog "OK" "maxpkg-changelog.ini copied"
+            saveCurrentChangelog()
+            if (doesFileExist changelogIniPath) do (
+                copyFile changelogIniPath (buildRoot + "maxpkg-changelog.ini")
+                addLog "OK" "maxpkg-changelog.ini copied"
+            )
+
+            for item in packageFiles do (
+                copyPackageFile item[1] (buildRoot + item[2])
+            )
+
+            addLog "OK" ((packageFiles.count as string) + " files copied")
+
+            if ((trimString ui.edtIcon.text) != "") do (
+                ensureDirectory (buildRoot + "icons")
+                copyFile ui.edtIcon.text (buildRoot + "icons\\icon.svg")
+                addLog "OK" "SVG icon copied"
+            )
+
+            if (ui.chkCreateMacro.checked) do (
+                writeTextFile (buildRoot + "maxpkg-button.mcr") (buildMacroScript ui)
+                addLog "OK" "maxpkg-button.mcr generated"
+            )
+
+            writeTextFile (buildRoot + "mzp.run.ms") (buildMzpEntryScript())
+            addLog "OK" "mzp.run.ms generated"
+
+            writeTextFile (buildRoot + "mzp.run") (buildMzpRunScript ui)
+            addLog "OK" "mzp.run generated"
+
+            if (hasLogErrors()) then (
+                addLog "ERROR" "MZP was not created because log contains errors"
+            ) else (
+                if (createMzpFromFolder buildRoot outputFile) do (
+                    addLog "OK" ("MZP created: " + outputFile)
+                    isPackageBuilt = true
+                )
+            )
+        ) catch (
+            addLog "ERROR" ("Build failed: " + getCurrentException())
+            isPackageBuilt = false
         )
 
-        writeTextFile (buildRoot + "mzp.run") (buildMzpRunScript())
-        addLog "OK" "mzp.run generated"
+        cleanupBuildFolder buildRoot
 
-        if (ui.chkCreateMacro.checked) do (
-            writeTextFile (buildRoot + "maxpkg-button.mcr") (buildMacroScript ui)
-            addLog "OK" "maxpkg-button.mcr generated"
-        )
-
-        for item in packageFiles do (
-            copyPackageFile item[1] (buildRoot + item[2])
-        )
-
-        addLog "OK" ((packageFiles.count as string) + " files copied")
-
-        if ((trimString ui.edtIcon.text) != "") do (
-            ensureDirectory (buildRoot + "icons")
-            copyFile ui.edtIcon.text (buildRoot + "icons\\icon.svg")
-            addLog "OK" "SVG icon copied"
-        )
-
-        if (hasLogErrors()) do (
-            addLog "ERROR" "MZP was not created because log contains errors"
-            return false
-        )
-
-        if (createMzpFromFolder buildRoot outputFile) then (
-            addLog "OK" ("MZP created: " + outputFile)
-            return true
-        )
-
-        return false
+        return isPackageBuilt
     )
 
 
