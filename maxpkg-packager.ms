@@ -7,6 +7,7 @@ DEV=https://3dground.net
 SITE=https://maxpkg.dev
 HELP=
 UPDATE=https://raw.githubusercontent.com/maxpkg-dev/max-dev-tool/main/maxpkg-packager.ms
+MANIFEST_VERSION=1
 
 [ABOUT]
 Drag this script into a 3ds Max viewport from a developer productfolder.=
@@ -141,7 +142,8 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         helpUrl,
         updateUrl,
         descriptionContent,
-        releases
+        releases,
+		manifestVersion
     )
 
     struct MaxPkgUpdateResultData (
@@ -188,6 +190,7 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         scriptInfo.siteUrl = scriptInfoEntry scriptFilePath "SITE" defaultContent:""
         scriptInfo.helpUrl = scriptInfoEntry scriptFilePath "HELP" defaultContent:""
         scriptInfo.updateUrl = scriptInfoEntry scriptFilePath "UPDATE" defaultContent:""
+        scriptInfo.manifestVersion = scriptInfoEntry scriptFilePath "MANIFEST_VERSION" defaultContent:"1"
         scriptInfo.descriptionContent = descriptionContent
         scriptInfo.releases = releaseItems
 
@@ -1007,7 +1010,7 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         if ((trimString ui.edtIcon.text) != "") do iconPath = "icons/icon.svg"
 
         format "[package]\n" to:ss
-        format "manifestVersion=1\n" to:ss
+		format "%" (iniLine "manifestVersion" scriptInfo.manifestVersion) to:ss
         format "%" (iniLine "packageGuid" ui.edtGuid.text) to:ss
         format "%" (iniLine "name" ui.edtName.text) to:ss
         format "%" (iniLine "buttonName" ui.edtButtonName.text) to:ss
@@ -1052,7 +1055,7 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         if ((trimString ui.edtIcon.text) != "") do iconPath = "icons/icon.svg"
 
         format "{\n" to:ss
-        format "  \"manifestVersion\": 1,\n" to:ss
+		format "  \"manifestVersion\": \"%\",\n" (escapeJson (trimString scriptInfo.manifestVersion)) to:ss
         format "  \"packageGuid\": \"%\",\n" (escapeJson (trimString ui.edtGuid.text)) to:ss
         format "  \"name\": \"%\",\n" (escapeJson (trimString ui.edtName.text)) to:ss
         format "  \"buttonName\": \"%\",\n" (escapeJson (trimString ui.edtButtonName.text)) to:ss
