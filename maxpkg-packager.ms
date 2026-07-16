@@ -22,6 +22,8 @@
     local packageFiles = #()
     local changelogItems = #()
     local logItems = #()
+    local isLoadingSettings = false
+    global MaxPkgPackagerFloater
 
 
     fn trimString s tag:" " = (
@@ -57,10 +59,10 @@
     )
 
     fn stringToBool s defaultValue:true = (
-        local value = lowerString (trimString s)
+        local boolText = lowerString (trimString s)
 
-        if (value == "") do return defaultValue
-        return (value == "true" or value == "1" or value == "yes")
+        if (boolText == "") do return defaultValue
+        return (boolText == "true" or boolText == "1" or boolText == "yes")
     )
 
     fn getDropDownText ddl = (
@@ -68,14 +70,19 @@
         return ddl.items[ddl.selection]
     )
 
-    fn setDropDownText ddl value = (
-        local index = findItem ddl.items value
-        if (index > 0) do ddl.selection = index
-        return true
+    fn setDropDownText ddl itemText = (
+        local index = findItem ddl.items itemText
+
+        if (index > 0) then (
+            ddl.selection = index
+            return true
+        )
+
+        return false
     )
 
-    fn addLog level text = (
-        append logItems ("[" + level + "] " + text)
+    fn addLog level t = (
+        append logItems ("[" + level + "] " + t)
         return true
     )
 
@@ -147,15 +154,85 @@
         return ((dotNetClass "System.Guid").NewGuid()).ToString()
     )
 
+    fn currentMaxYearPlusOne = (
+        try (
+            return (((dotNetClass "System.DateTime").Now).Year + 1)
+        ) catch (
+            return 2027
+        )
+    )
+
+    fn maxYearItems = (
+        local result = #()
+        local maxYear = currentMaxYearPlusOne()
+
+        for yearItem in 2012 to maxYear do (
+            append result (yearItem as string)
+        )
+
+        return result
+    )
+
+    fn versionNumberItems m: 99 = (
+        local result = #()
+
+        for numberItem in 0 to m do (
+            append result (numberItem as string)
+        )
+
+        return result
+    )
+
+    fn parseVersionParts versionString = (
+        local parts = filterString (trimString versionString) "."
+
+        if (parts.count != 3) do return #("1", "0", "0")
+
+        for i in 1 to 3 do (
+            local partNumber = try (parts[i] as integer) catch(undefined)
+            if (partNumber == undefined) do return #("1", "0", "0")
+            if (partNumber < 0 or partNumber > 99) do return #("1", "0", "0")
+            parts[i] = partNumber as string
+        )
+
+        return parts
+    )
+
+    fn buildVersionString ui = (
+        local majorPart = getDropDownText ui.ddlVersionMajor
+        local minorPart = getDropDownText ui.ddlVersionMinor
+        local patchPart = getDropDownText ui.ddlVersionPatch
+
+        if (majorPart == "") do majorPart = "1"
+        if (minorPart == "") do minorPart = "0"
+        if (patchPart == "") do patchPart = "0"
+
+        return majorPart + "." + minorPart + "." + patchPart
+    )
+
+    fn selectedMinMaxYear ui = (
+        local selectedYear = getDropDownText ui.ddlMinMax
+
+        if (selectedYear == "") do return "2012"
+        return selectedYear
+    )
+
+    fn selectedReleaseChannel ui = (
+        local channel = getDropDownText ui.ddlReleaseChannel
+
+        if (channel == "") do return "stable"
+        return channel
+    )
+
     fn isValidGuid s = (
-        local value = trimString s
+        local guidText = trimString s
         local dashPositions = #(9, 14, 19, 24)
         local hexChars = "0123456789abcdefABCDEF"
 
-        if (value.count != 36) do return false
+        if (guidText.count != 36) do return false
 
-        for i in 1 to value.count do (
-            local ch = substring value i 1
+        for i in 1 to guidText.count do (
+            local ch = substring guidText i 1
             local dashExpected = (findItem dashPositions i) > 0
 
             if (dashExpected) then (
@@ -197,18 +274,18 @@
     )
 
     fn isExcludedPath absPath = (
-        local path = lowerString (normalizePath absPath)
-        local name = lowerString (filenameFromPath absPath)
+        local p = lowerString (normalizePath absPath)
+        local n = lowerString (filenameFromPath absPath)
 
-        if ((findString path "\\.git\\") != undefined) do return true
-        if ((findString path "\\.vscode\\") != undefined) do return true
-        if (matchPattern name pattern:"*.bak" ignoreCase:true) do return true
-        if (matchPattern name pattern:"*.tmp" ignoreCase:true) do return true
-        if (matchPattern name pattern:"*.log" ignoreCase:true) do return true
-        if (matchPattern name pattern:"*.zip" ignoreCase:true) do return true
-        if (matchPattern name pattern:"*.mzp" ignoreCase:true) do return true
-        if (name == "maxpkg-packager.ms") do return true
-        if (name == "maxpkg-packager.ini") do return true
+        if ((findString p "\\.git\\") != undefined) do return true
+        if ((findString p "\\.vscode\\") != undefined) do return true
+        if (matchPattern n pattern:"*.bak" ignoreCase:true) do return true
+        if (matchPattern n pattern:"*.tmp" ignoreCase:true) do return true
+        if (matchPattern n pattern:"*.log" ignoreCase:true) do return true
+        if (matchPattern n pattern:"*.zip" ignoreCase:true) do return true
+        if (matchPattern n pattern:"*.mzp" ignoreCase:true) do return true
+        if (n == "maxpkg-packager.ms") do return true
+        if (n == "maxpkg-packager.ini") do return true
 
         return false
     )
@@ -272,27 +349,27 @@
         return result
     )
 
-    fn readTextFile path = (
-        local stream = openFile path mode:"rt"
-        local text = ""
+    fn readTextFile filePath = (
+        local stream = openFile filePath mode:"rt"
+        local content = ""
 
         if (stream == undefined) do return undefined
 
         while (not eof stream) do (
-            text += readLine stream
-            if (not eof stream) do text += "\n"
+            content += readLine stream
+            if (not eof stream) do content += "\n"
         )
 
         close stream
-        return text
+        return content
     )
 
-    fn writeTextFile path text = (
-        local stream = createFile path
+    fn writeTextFile filePath content = (
+        local stream = createFile filePath
 
         if (stream == undefined) do return false
 
-        format "%" text to:stream
+        format "%" content to:stream
         close stream
 
         return true
@@ -323,28 +400,28 @@
         return result
     )
 
-    fn isValidSafeSvg path = (
-        if (path == undefined or path == "") do return false
-        if (not (doesFileExist path)) do return false
-        if ((lowerString (getFilenameType path)) != ".svg") do return false
+    fn isValidSafeSvg filePath = (
+        if (filePath == undefined or filePath == "") do return false
+        if (not (doesFileExist filePath)) do return false
+        if ((lowerString (getFilenameType filePath)) != ".svg") do return false
 
-        local text = readTextFile path
-        if (text == undefined or text.count == 0) do return false
+        local content = readTextFile filePath
+        if (content == undefined or content.count == 0) do return false
 
-        for i in 1 to text.count do (
-            local code = bit.charAsInt (substring text i 1)
+        for i in 1 to content.count do (
+            local code = bit.charAsInt (substring content i 1)
             if (code == 0) do return false
         )
 
-        local value = lowerString text
+        local lowerContent = lowerString content
 
-        if ((findString value "<svg") == undefined) do return false
-        if ((findString value "<script") != undefined) do return false
-        if ((findString value "javascript:") != undefined) do return false
-        if ((findString value "onload=") != undefined) do return false
-        if ((findString value "onclick=") != undefined) do return false
-        if ((findString value "onerror=") != undefined) do return false
-        if ((findString value "<foreignobject") != undefined) do return false
+        if ((findString lowerContent "<svg") == undefined) do return false
+        if ((findString lowerContent "<script") != undefined) do return false
+        if ((findString lowerContent "javascript:") != undefined) do return false
+        if ((findString lowerContent "onload=") != undefined) do return false
+        if ((findString lowerContent "onclick=") != undefined) do return false
+        if ((findString lowerContent "onerror=") != undefined) do return false
+        if ((findString lowerContent "<foreignobject") != undefined) do return false
 
         return true
     )
@@ -359,49 +436,51 @@
         return ""
     )
 
-    fn iniLine key value = (
-        return key + "=" + (escapeIniValue value) + "\n"
+    fn iniLine key settingValue = (
+        return key + "=" + (escapeIniValue settingValue) + "\n"
     )
 
-    fn iniSet key value section:"settings" = (
-        setINISetting iniPath section key (escapeIniValue value)
+    fn iniSet key settingValue iniSection:"settings" = (
+        setINISetting iniPath iniSection key (escapeIniValue settingValue)
         return true
     )
 
-    fn iniGet key section:"settings" = (
-        return unescapeIniValue (getINISetting iniPath section key)
+    fn iniGet key iniSection:"settings" = (
+        return unescapeIniValue (getINISetting iniPath iniSection key)
     )
 
-    fn iniGetBool key section:"settings" defaultValue:true = (
-        return stringToBool (getINISetting iniPath section key) defaultValue:defaultValue
+    fn iniGetBool key iniSection:"settings" defaultValue:true = (
+        return stringToBool (getINISetting iniPath iniSection key) defaultValue:defaultValue
     )
 
-    fn iniGetInt key section:"settings" defaultValue:0 = (
-        local value = getINISetting iniPath section key
+    fn iniGetInt key iniSection:"settings" defaultValue:0 = (
+        local settingValue = getINISetting iniPath iniSection key
 
-        if (value == "") do return defaultValue
+        if (settingValue == "") do return defaultValue
 
-        return value as integer
+        return settingValue as integer
     )
 
-    fn iniSetRaw key value section:"settings" = (
-        setINISetting iniPath section key (value as string)
+    fn iniSetRaw key settingValue iniSection:"settings" = (
+        setINISetting iniPath iniSection key (settingValue as string)
         return true
     )
 
-    fn saveSettings ui = (
+    fn saveSettings ui shouldLog:false = (
+        if (isLoadingSettings) do return false
+
         iniSet "packageName" ui.edtName.text
         iniSet "buttonName" ui.edtButtonName.text
         iniSet "developerName" ui.edtDeveloperName.text
-        iniSet "developerSlug" ui.edtDeveloperSlug.text
         iniSet "packageGuid" ui.edtGuid.text
         iniSet "description" ui.edtDescription.text
         iniSet "license" (getDropDownText ui.ddlLicense)
         iniSet "licenseUrl" ui.edtLicenseUrl.text
-        iniSet "version" ui.edtVersion.text
+        iniSet "version" (buildVersionString ui)
+        iniSet "releaseChannel" (selectedReleaseChannel ui)
         iniSet "releaseDate" ui.edtReleaseDate.text
-        iniSet "min3dsMax" ui.edtMinMax.text
-        iniSet "max3dsMax" ui.edtMaxMax.text
+        iniSet "min3dsMax" (selectedMinMaxYear ui)
+        iniSet "max3dsMax" ((currentMaxYearPlusOne()) as string)
         iniSet "runtime" (getDropDownText ui.ddlRuntime)
         iniSet "entry" ui.edtEntry.text
         iniSet "svgIcon" ui.edtIcon.text
@@ -412,21 +491,21 @@
         iniSet "showInToolbar" (boolToString ui.chkShowToolbar.checked)
         iniSet "outputFolder" ui.edtOutput.text
 
-        iniSetRaw "count" packageFiles.count section:"files"
+        iniSetRaw "count" packageFiles.count iniSection:"files"
 
         for i in 1 to packageFiles.count do (
-            iniSet ((i as string) + "_abs") packageFiles[i][1] section:"files"
-            iniSet ((i as string) + "_rel") packageFiles[i][2] section:"files"
+            iniSet ((i as string) + "_abs") packageFiles[i][1] iniSection:"files"
+            iniSet ((i as string) + "_rel") packageFiles[i][2] iniSection:"files"
         )
 
-        iniSetRaw "count" changelogItems.count section:"changelog"
+        iniSetRaw "count" changelogItems.count iniSection:"changelog"
 
         for i in 1 to changelogItems.count do (
-            iniSet ((i as string) + "_type") changelogItems[i][1] section:"changelog"
-            iniSet ((i as string) + "_text") changelogItems[i][2] section:"changelog"
+            iniSet ((i as string) + "_type") changelogItems[i][1] iniSection:"changelog"
+            iniSet ((i as string) + "_text") changelogItems[i][2] iniSection:"changelog"
         )
 
-        addLog "OK" "INI saved"
+        if (shouldLog) do addLog "OK" "INI saved"
 
         return true
     )
@@ -434,19 +513,27 @@
     fn loadSettings ui = (
         if (not (doesFileExist iniPath)) do return false
 
+        isLoadingSettings = true
+
         ui.edtName.text = iniGet "packageName"
         ui.edtButtonName.text = iniGet "buttonName"
         ui.edtDeveloperName.text = iniGet "developerName"
-        ui.edtDeveloperSlug.text = iniGet "developerSlug"
         ui.edtGuid.text = iniGet "packageGuid"
         ui.edtDescription.text = iniGet "description"
         setDropDownText ui.ddlLicense (iniGet "license")
         ui.edtLicenseUrl.text = iniGet "licenseUrl"
-        ui.edtVersion.text = iniGet "version"
+
+        local versionParts = parseVersionParts (iniGet "version")
+        setDropDownText ui.ddlVersionMajor versionParts[1]
+        setDropDownText ui.ddlVersionMinor versionParts[2]
+        setDropDownText ui.ddlVersionPatch versionParts[3]
+        if (not (setDropDownText ui.ddlReleaseChannel (iniGet "releaseChannel"))) do setDropDownText ui.ddlReleaseChannel "stable"
+
         ui.edtReleaseDate.text = iniGet "releaseDate"
-        ui.edtMinMax.text = iniGet "min3dsMax"
-        ui.edtMaxMax.text = iniGet "max3dsMax"
-        setDropDownText ui.ddlRuntime (iniGet "runtime")
+
+        if (not (setDropDownText ui.ddlMinMax (iniGet "min3dsMax"))) do setDropDownText ui.ddlMinMax "2012"
+
+        if (not (setDropDownText ui.ddlRuntime (iniGet "runtime"))) do setDropDownText ui.ddlRuntime "maxscript"
         ui.edtEntry.text = iniGet "entry"
         ui.edtIcon.text = iniGet "svgIcon"
         ui.edtHomepage.text = iniGet "homepage"
@@ -458,11 +545,11 @@
 
         packageFiles = #()
 
-        local fileCount = iniGetInt "count" section:"files" defaultValue:0
+        local fileCount = iniGetInt "count" iniSection:"files" defaultValue:0
 
         for i in 1 to fileCount do (
-            local abs = iniGet ((i as string) + "_abs") section:"files"
-            local rel = iniGet ((i as string) + "_rel") section:"files"
+            local abs = iniGet ((i as string) + "_abs") iniSection:"files"
+            local rel = iniGet ((i as string) + "_rel") iniSection:"files"
 
             if (abs != "" and rel != "") do (
                 append packageFiles #((normalizePath abs), (normalizePath rel))
@@ -471,11 +558,11 @@
 
         changelogItems = #()
 
-        local changelogCount = iniGetInt "count" section:"changelog" defaultValue:0
+        local changelogCount = iniGetInt "count" iniSection:"changelog" defaultValue:0
 
         for i in 1 to changelogCount do (
-            local itemType = iniGet ((i as string) + "_type") section:"changelog"
-            local itemText = iniGet ((i as string) + "_text") section:"changelog"
+            local itemType = iniGet ((i as string) + "_type") iniSection:"changelog"
+            local itemText = iniGet ((i as string) + "_text") iniSection:"changelog"
 
             if (itemType != "" and itemText != "") do (
                 append changelogItems #(itemType, itemText)
@@ -483,74 +570,77 @@
         )
 
         addLog "OK" "INI loaded"
+        isLoadingSettings = false
+        saveSettings ui
         return true
     )
 
     fn validateSettings ui = (
-        local ok = true
+        local isValid = true
         local packageName = trimString ui.edtName.text
         local buttonName = trimString ui.edtButtonName.text
         local description = trimString ui.edtDescription.text
         local guid = trimString ui.edtGuid.text
-        local versionText = trimString ui.edtVersion.text
+        local versionText = buildVersionString ui
         local releaseDate = trimString ui.edtReleaseDate.text
         local runtime = getDropDownText ui.ddlRuntime
         local entry = normalizePath (trimString ui.edtEntry.text)
-        local icon = normalizePath (trimString ui.edtIcon.text)
-        local minMax = ui.edtMinMax.text as integer
-        local maxMax = ui.edtMaxMax.text as integer
+        local iconFile = normalizePath (trimString ui.edtIcon.text)
+        local minMax = (selectedMinMaxYear ui) as integer
+        local maxMax = currentMaxYearPlusOne()
         local outputFolder = ensureTrailingSlash ui.edtOutput.text
 
         clearLog()
 
-        if (packageName == "") do (addLog "ERROR" "Package name is required"; ok = false)
-        if (buttonName == "") do (addLog "ERROR" "Button name is required"; ok = false)
-        if (description == "") do (addLog "ERROR" "Description is required"; ok = false)
-        if (description.count > 500) do (addLog "ERROR" "Description must be 500 characters or less"; ok = false)
-        if (guid == "" or not (isValidGuid guid)) do (addLog "ERROR" "Package GUID must be a valid UUID"; ok = false)
-        if (versionText == "") do (addLog "ERROR" "Version is required"; ok = false)
-        if (releaseDate == "") do (addLog "ERROR" "Release date is required"; ok = false)
-        if ((getDropDownText ui.ddlLicense) == "") do (addLog "ERROR" "License is required"; ok = false)
-        if (minMax == undefined or maxMax == undefined) do (addLog "ERROR" "Min and max 3ds Max versions must be numbers"; ok = false)
-        if (minMax != undefined and maxMax != undefined and minMax > maxMax) do (addLog "ERROR" "Min 3ds Max version must be <= max version"; ok = false)
-        if (runtime != "maxscript" and runtime != "python") do (addLog "ERROR" "Runtime must be maxscript or python"; ok = false)
+        if (packageName == "") do (addLog "ERROR" "Package name is required"; isValid = false)
+        if (buttonName == "") do (addLog "ERROR" "Button name is required"; isValid = false)
+        if (description == "") do (addLog "ERROR" "Description is required"; isValid = false)
+        if (description.count > 500) do (addLog "ERROR" "Description must be 500 characters or less"; isValid = false)
+        if (guid == "" or not (isValidGuid guid)) do (addLog "ERROR" "Package GUID must be a valid UUID"; isValid = false)
+        if (versionText == "") do (addLog "ERROR" "Version is required"; isValid = false)
+        if ((selectedReleaseChannel ui) == "") do (addLog "ERROR" "Release channel is required"; isValid = false)
+        if (releaseDate == "") do (addLog "ERROR" "Release date is required"; isValid = false)
+        if ((getDropDownText ui.ddlLicense) == "") do (addLog "ERROR" "License is required"; isValid = false)
+        if (minMax == undefined or maxMax == undefined) do (addLog "ERROR" "Min and max 3ds Max versions must be numbers"; isValid = false)
+        if (minMax != undefined and maxMax != undefined and minMax > maxMax) do (addLog "ERROR" "Min 3ds Max version must be <= max version"; isValid = false)
+        if (runtime != "maxscript" and runtime != "python") do (addLog "ERROR" "Runtime must be maxscript or python"; isValid = false)
 
         if (entry == "") then (
             addLog "ERROR" "Entry file is required"
-            ok = false
+            isValid = false
         ) else (
             local entryItem = findPackageFileByRel entry
 
             if (entryItem == undefined) then (
                 addLog "ERROR" "Entry file must be included in package files"
-                ok = false
+                isValid = false
             ) else (
                 local ext = lowerString (getFilenameType entry)
 
-                if (not (doesFileExist entryItem[1])) do (addLog "ERROR" "Entry file does not exist"; ok = false)
-                if (runtime == "maxscript" and ext != ".ms" and ext != ".mse") do (addLog "ERROR" "MaxScript runtime requires .ms or .mse entry file"; ok = false)
-                if (runtime == "python" and ext != ".py") do (addLog "ERROR" "Python runtime requires .py entry file"; ok = false)
+                if (not (doesFileExist entryItem[1])) do (addLog "ERROR" "Entry file does not exist"; isValid = false)
+                if (runtime == "maxscript" and ext != ".ms" and ext != ".mse") do (addLog "ERROR" "MaxScript runtime requires .ms or .mse entry file"; isValid = false)
+                if (runtime == "python" and ext != ".py") do (addLog "ERROR" "Python runtime requires .py entry file"; isValid = false)
             )
         )
 
-        if (icon != "") do (
-            if (isValidSafeSvg icon) then (
+        if (iconFile != "") do (
+            if (isValidSafeSvg iconFile) then (
                 addLog "OK" "SVG icon validated"
             ) else (
                 addLog "ERROR" "Selected icon is not a valid safe SVG file."
-                ok = false
+                isValid = false
             )
         )
 
-        if (packageFiles.count == 0) do (addLog "ERROR" "At least one package file is required"; ok = false)
+        if (packageFiles.count == 0) do (addLog "ERROR" "At least one package file is required"; isValid = false)
 
         for item in packageFiles do (
-            if (not (isSafeRelativePath item[2])) do (addLog "ERROR" ("Invalid relative path: " + item[2]); ok = false)
-            if (not (doesFileExist item[1])) do (addLog "ERROR" ("Missing file: " + item[2]); ok = false)
+            if (not (isSafeRelativePath item[2])) do (addLog "ERROR" ("Invalid relative path: " + item[2]); isValid = false)
+            if (not (doesFileExist item[1])) do (addLog "ERROR" ("Missing file: " + item[2]); isValid = false)
 
             local rel = lowerString item[2]
-            if (endsWith rel "\\install.ms") do (addLog "ERROR" "install.ms is only allowed in package root"; ok = false)
-            if (endsWith rel "\\uninstall.ms") do (addLog "ERROR" "uninstall.ms is only allowed in package root"; ok = false)
+            if (endsWith rel "\\install.ms") do (addLog "ERROR" "install.ms is only allowed in package root"; isValid = false)
+            if (endsWith rel "\\uninstall.ms") do (addLog "ERROR" "uninstall.ms is only allowed in package root"; isValid = false)
         )
 
         if ((detectRootHook "install.ms") != "") do addLog "OK" "install.ms detected"
@@ -558,15 +648,15 @@
 
         if (outputFolder == "" or outputFolder == "\\") then (
             addLog "ERROR" "Output folder is required"
-            ok = false
+            isValid = false
         ) else if (not (ensureDirectory outputFolder)) then (
             addLog "ERROR" "Output folder does not exist and cannot be created"
-            ok = false
+            isValid = false
         )
 
-        if (ok) then addLog "OK" "Validation passed" else addLog "ERROR" "Validation failed"
+        if (isValid) then addLog "OK" "Validation passed" else addLog "ERROR" "Validation failed"
 
-        return ok
+        return isValid
     )
 
     fn buildManifestIni ui = (
@@ -581,7 +671,8 @@
         format "%" (iniLine "name" ui.edtName.text) to:ss
         format "%" (iniLine "buttonName" ui.edtButtonName.text) to:ss
         format "%" (iniLine "description" ui.edtDescription.text) to:ss
-        format "%" (iniLine "version" ui.edtVersion.text) to:ss
+        format "%" (iniLine "version" (buildVersionString ui)) to:ss
+        format "%" (iniLine "releaseChannel" (selectedReleaseChannel ui)) to:ss
         format "%" (iniLine "releaseDate" ui.edtReleaseDate.text) to:ss
         format "%" (iniLine "runtime" (getDropDownText ui.ddlRuntime)) to:ss
         format "%" (iniLine "entry" (normalizePath ui.edtEntry.text)) to:ss
@@ -589,9 +680,8 @@
         format "%" (iniLine "license" (getDropDownText ui.ddlLicense)) to:ss
         format "%" (iniLine "licenseUrl" ui.edtLicenseUrl.text) to:ss
         format "%" (iniLine "developerName" ui.edtDeveloperName.text) to:ss
-        format "%" (iniLine "developerSlug" ui.edtDeveloperSlug.text) to:ss
-        format "%" (iniLine "min3dsMax" ui.edtMinMax.text) to:ss
-        format "%" (iniLine "max3dsMax" ui.edtMaxMax.text) to:ss
+        format "%" (iniLine "min3dsMax" (selectedMinMaxYear ui)) to:ss
+        format "%" (iniLine "max3dsMax" ((currentMaxYearPlusOne()) as string)) to:ss
         format "%" (iniLine "homepage" ui.edtHomepage.text) to:ss
         format "%" (iniLine "documentation" ui.edtDocumentation.text) to:ss
         format "%" (iniLine "support" ui.edtSupport.text) to:ss
@@ -614,8 +704,8 @@
     fn buildManifestJson ui = (
         local ss = stringStream ""
         local iconPath = ""
-        local minMax = ui.edtMinMax.text as integer
-        local maxMax = ui.edtMaxMax.text as integer
+        local minMax = (selectedMinMaxYear ui) as integer
+        local maxMax = currentMaxYearPlusOne()
 
         if ((trimString ui.edtIcon.text) != "") do iconPath = "icons/icon.svg"
 
@@ -625,7 +715,8 @@
         format "  \"name\": \"%\",\n" (escapeJson (trimString ui.edtName.text)) to:ss
         format "  \"buttonName\": \"%\",\n" (escapeJson (trimString ui.edtButtonName.text)) to:ss
         format "  \"description\": \"%\",\n" (escapeJson (trimString ui.edtDescription.text)) to:ss
-        format "  \"version\": \"%\",\n" (escapeJson (trimString ui.edtVersion.text)) to:ss
+        format "  \"version\": \"%\",\n" (escapeJson (buildVersionString ui)) to:ss
+        format "  \"releaseChannel\": \"%\",\n" (escapeJson (selectedReleaseChannel ui)) to:ss
         format "  \"releaseDate\": \"%\",\n" (escapeJson (trimString ui.edtReleaseDate.text)) to:ss
         format "  \"runtime\": \"%\",\n" (escapeJson (getDropDownText ui.ddlRuntime)) to:ss
         format "  \"entry\": \"%\",\n" (escapeJson (normalizePath (trimString ui.edtEntry.text))) to:ss
@@ -633,7 +724,6 @@
         format "  \"license\": \"%\",\n" (escapeJson (getDropDownText ui.ddlLicense)) to:ss
         format "  \"licenseUrl\": \"%\",\n" (escapeJson (trimString ui.edtLicenseUrl.text)) to:ss
         format "  \"developerName\": \"%\",\n" (escapeJson (trimString ui.edtDeveloperName.text)) to:ss
-        format "  \"developerSlug\": \"%\",\n" (escapeJson (trimString ui.edtDeveloperSlug.text)) to:ss
         format "  \"min3dsMax\": %, \n" minMax to:ss
         format "  \"max3dsMax\": %, \n" maxMax to:ss
         format "  \"homepage\": \"%\",\n" (escapeJson (trimString ui.edtHomepage.text)) to:ss
@@ -848,94 +938,109 @@
     )
 
 
-    try (destroyDialog MaxPkgPackagerRollout) catch()
+    try (closeRolloutFloater MaxPkgPackagerFloater) catch()
 
-    rollout MaxPkgPackagerRollout "MaxPkg Packager" width:720 height:820
+    rollout MaxPkgPackagerRollout "Packager" width:740 height:1070
     (
-        label lblName "Package Name" pos:[12,12] width:120
-        editText edtName "" pos:[145,10] width:220 height:18
-        label lblButtonName "Button Name" pos:[380,12] width:100
-        editText edtButtonName "" pos:[490,10] width:210 height:18
+        group "Important Info" (
+			label lblName "Package Name" align: #left across: 4
+			editText edtName "" width:235 align: #left offset: [-75, 0]
+			label lblButtonName "Button Name" align: #left
+			editText edtButtonName ""  width: 235 align: #right
 
-        label lblDeveloperName "Developer Name" pos:[12,40] width:120
-        editText edtDeveloperName "" pos:[145,38] width:220 height:18
-        label lblDeveloperSlug "Developer Slug" pos:[380,40] width:100
-        editText edtDeveloperSlug "" pos:[490,38] width:210 height:18
+			label lblGuid "Package GUID"  align: #left across: 5 offset: [0, 4]
+			editText edtGuid "" width:318 offset: [-39, 2] align: #left
+			button btnGuidGenerate "Generate" width:70 offset: [150, 0] align: #left
+			button btnGuidCopy "Copy"  width:55  offset: [85, 0] align: #left
+			button btnGuidPaste "Paste" width:55 offset: [5, 0] align: #left
 
-        label lblGuid "Package GUID" pos:[12,68] width:120
-        editText edtGuid "" pos:[145,66] width:330 height:18
-        button btnGuidGenerate "Generate" pos:[485,64] width:70 height:22
-        button btnGuidCopy "Copy" pos:[560,64] width:55 height:22
-        button btnGuidPaste "Paste" pos:[620,64] width:55 height:22
+			label lblDescription "Description" align: #left across: 2
+			editText edtDescription "" width:615 height:58 multiline:true align: #left offset: [-255, 0]
+		)
 
-        label lblDescription "Description" pos:[12,98] width:120
-        editText edtDescription "" pos:[145,96] width:555 height:60 multiline:true
+        group "Package Metadata" (
+			label lblVersion "Version" align: #left across: 10 offset: [0, 4]
+			dropdownList ddlVersionMajor ""  width:52 items:(versionNumberItems()) selection:2 align: #left offset: [37, 0]
+			label lblVersionDotA "." align: #left offset: [20, 5]
+			dropdownList ddlVersionMinor "" width:52 items:(versionNumberItems m: 9) selection:1  align: #left offset: [-46, 0]
+			label lblVersionDotB "." align: #left offset: [-63, 5]
+			dropdownList ddlVersionPatch "" width:52 items:(versionNumberItems m: 9) selection:1 align: #left offset: [-129, 0]
+			label lblReleaseChannel "Channel"  align: #left offset: [-110, 4]
+			dropdownList ddlReleaseChannel "" width:95 items:#("stable","alpha","beta") selection:1 align: #left offset: [-122, 0]
+			label lblReleaseDate "Release Date"  width:80 align: #left offset: [-60, 4]
+			editText edtReleaseDate "" width:105 height:18 align: #left offset: [-53, 2]
 
-        label lblLicense "License" pos:[12,168] width:120
-        dropdownList ddlLicense "" pos:[145,164] width:160 items:#("Free","Shareware","Commercial","Open Source","MIT","GPL","Custom") selection:1
-        label lblLicenseUrl "License URL" pos:[320,168] width:80
-        editText edtLicenseUrl "" pos:[405,166] width:295 height:18
+			label lblMinMax "Min 3ds Max" align: #left across: 4 offset: [0, 4]
+			dropdownList ddlMinMax "" width: 52 items:(maxYearItems()) selection:1 align: #left offset: [-71, 0]
+			checkbox chkCreateMacro "Create 3ds Max Macro Button" checked:true  align: #left offset: [-39, 0]
+			checkbox chkShowToolbar "Show In MaxPkg Toolbar"  checked:true align: #left offset: [-25, 0]
+			
+			label lblIcon "SVG Icon" align: #left across: 5
+			editText edtIcon "" width: 348 align: #left offset: [-39, 0]
+			button btnIconBrowse "Browse" width:80 align: #right offset: [110, 0]
+			button btnIconClear "Clear"  width:80 align: #right offset: [55, 0]
+			button btnIconPreview "Preview" width:80 align: #right 
+		)
 
-        label lblVersion "Version" pos:[12,196] width:120
-        editText edtVersion "1.0.0" pos:[145,194] width:100 height:18
-        label lblReleaseDate "Release Date" pos:[260,196] width:85
-        editText edtReleaseDate "" pos:[350,194] width:110 height:18
-        label lblMinMax "Min 3ds Max" pos:[475,196] width:80
-        editText edtMinMax "2012" pos:[560,194] width:55 height:18
-        label lblMaxMax "Max" pos:[625,196] width:30
-        editText edtMaxMax "2027" pos:[660,194] width:40 height:18
+        group "Info"(
+			label lblDeveloperName "Developer Name" across: 4 align: #left offset: [0, 4]
+			editText edtDeveloperName "" width:235  align: #left offset: [-75, 4]
+			label lblLicense "License" align: #left offset: [0, 4]
+			dropdownList ddlLicense "" width: 100 items:#("Free","Shareware","Commercial","Open Source","MIT","GPL","Custom") selection:1  align: #left offset: [-52, 0]
 
-        label lblRuntime "Runtime" pos:[12,224] width:120
-        dropdownList ddlRuntime "" pos:[145,220] width:120 items:#("maxscript","python") selection:1
-        label lblEntry "Entry File" pos:[280,224] width:70
-        editText edtEntry "" pos:[355,222] width:255 height:18
-        button btnEntryFromSelected "Use Selected" pos:[620,220] width:80 height:22
+			label lblLicenseUrl "License URL" across: 4 align: #left
+			editText edtLicenseUrl "" width:235  align: #left offset: [-75, 0]
+			label lblHomepage "Homepage URL" align: #left
+			editText edtHomepage "" width:235 align: #right
 
-        label lblIcon "SVG Icon" pos:[12,252] width:120
-        editText edtIcon "" pos:[145,250] width:380 height:18
-        button btnIconBrowse "Browse" pos:[535,248] width:55 height:22
-        button btnIconClear "Clear" pos:[595,248] width:50 height:22
-        button btnIconPreview "Preview" pos:[650,248] width:50 height:22
+			label lblDocs "Documentation URL"  across: 4 align: #left
+			editText edtDocumentation ""  width:235  align: #left offset: [-75, 0]
+			label lblSupport "Support URL" align: #left
+			editText edtSupport "" width:235 align: #right						
+		)
 
-        label lblHomepage "Homepage URL" pos:[12,280] width:120
-        editText edtHomepage "" pos:[145,278] width:220 height:18
-        label lblDocs "Documentation URL" pos:[380,280] width:110
-        editText edtDocumentation "" pos:[500,278] width:200 height:18
+        group "Files List" (
+			label lblOutput "Output Folder" align: #left across: 3 offset: [0, 5]
+			editText edtOutput "" width: 524 align: #left offset: [-135, 5]
+			button btnOutputBrowse "Browse" width:80 align: #right offset: [0, 2]
+			
+			listBox lbFiles "" height:7
+			
+			button btnAddFile "Add Files" width: 80 align: #left across: 5
+			button btnAddFolder "Add Folder" width:80 align: #left offset: [-55, 0]
+			button btnScanRoot "Scan Folder" width:80 align: #left offset: [-110, 0]
+			button btnRemoveFile "Remove" width:80 align: #right offset: [55, 0]
+			button btnClearFiles "Clear" width:80 align: #right 				
+		)
+		
+		group "Runtime" (
+			label lblRuntime "Launch" align: #left across: 5 offset: [0, 4]
+			dropdownList ddlRuntime "" width:120 items:#("maxscript", "python") selection:1 align: #left offset: [-37, 0]
+			label lblEntry "Entry File" align: #left offset: [34, 4]
+			editText edtEntry ""width: 250 align: #right offset: [53, 0]
+			button btnEntryFromSelected "Use Selected" width: 80 align: #right	
+		)
 
-        label lblSupport "Support URL" pos:[12,308] width:120
-        editText edtSupport "" pos:[145,306] width:220 height:18
-        checkbox chkCreateMacro "Create 3ds Max Macro Button" pos:[380,306] width:185 checked:true
-        checkbox chkShowToolbar "Show In MaxPkg Toolbar" pos:[570,306] width:145 checked:true
+        group "Changelog" (
+			listBox lbChangelog "" height:5
+			
+			dropdownList ddlChangeType "" width: 100 items:#("added","fixed","changed","removed","improved") selection:1 align: #left across: 5
+			editText edtChangeText "" width: 347 align: #left offset: [-39, 0]
+			button btnAddChange "Add" width:80 align: #right offset: [110, 0]
+			button btnEditChange "Edit" width:80 align: #right offset: [55, 0]
+			button btnRemoveChange "Remove" width:80 align: #right
+		)
 
-        label lblOutput "Output Folder" pos:[12,336] width:120
-        editText edtOutput "" pos:[145,334] width:480 height:18
-        button btnOutputBrowse "Browse" pos:[635,332] width:65 height:22
+        groupBox grpLog "Log" pos:[10,866] width:720 height:128
+        editText edtLog "" pos:[20,888] width:695 height:95 multiline:true readOnly:true
 
-        groupBox grpFiles "Files List" pos:[10,365] width:345 height:205
-        listBox lbFiles "" pos:[20,388] width:325 height:9
-        button btnAddFile "Add Files" pos:[20,530] width:70 height:24
-        button btnAddFolder "Add Folder" pos:[95,530] width:75 height:24
-        button btnScanRoot "Scan Folder" pos:[175,530] width:80 height:24
-        button btnRemoveFile "Remove" pos:[260,530] width:45 height:24
-        button btnClearFiles "Clear" pos:[310,530] width:45 height:24
-
-        groupBox grpChangelog "Changelog" pos:[365,365] width:345 height:205
-        listBox lbChangelog "" pos:[375,388] width:325 height:7
-        dropdownList ddlChangeType "" pos:[375,505] width:100 items:#("added","fixed","changed","removed","improved","security") selection:1
-        editText edtChangeText "" pos:[480,507] width:220 height:18
-        button btnAddChange "Add" pos:[375,530] width:60 height:24
-        button btnEditChange "Edit" pos:[440,530] width:60 height:24
-        button btnRemoveChange "Remove" pos:[505,530] width:70 height:24
-
-        editText edtLog "" pos:[10,580] width:700 height:165 multiline:true readOnly:true
-
-        button btnLoadIni "Load INI" pos:[10,760] width:80 height:28
-        button btnSaveIni "Save INI" pos:[95,760] width:80 height:28
-        button btnValidate "Validate" pos:[180,760] width:80 height:28
-        button btnPreviewManifest "Preview Manifest" pos:[265,760] width:105 height:28
-        button btnBuild "Build MZP" pos:[375,760] width:95 height:28
-        button btnOpenOutput "Open Output Folder" pos:[475,760] width:120 height:28
-        button btnClose "Close" pos:[630,760] width:70 height:28
+        groupBox grpActions "Actions" pos:[10,1002] width:720 height:54
+        button btnLoadIni "Load INI" pos:[20,1024] width:80 height:24
+        button btnValidate "Validate" pos:[105,1024] width:80 height:24
+        button btnPreviewManifest "Preview Manifest" pos:[190,1024] width:110 height:24
+        button btnBuild "Build MZP" pos:[305,1024] width:90 height:24
+        button btnOpenOutput "Open Output Folder" pos:[400,1024] width:125 height:24
+        button btnClose "Close" pos:[640,1024] width:70 height:24
 
 
         fn refreshFiles = (
@@ -960,17 +1065,60 @@
             return true
         )
 
+        fn syncVersionState = (
+            if (ddlVersionMajor.selection < 1) do setDropDownText ddlVersionMajor "1"
+            if (ddlVersionMinor.selection < 1) do setDropDownText ddlVersionMinor "0"
+            if (ddlVersionPatch.selection < 1) do setDropDownText ddlVersionPatch "0"
+            return true
+        )
+
+        fn autoSaveSettings = (
+            saveSettings MaxPkgPackagerRollout
+            return true
+        )
+
 
         on MaxPkgPackagerRollout open do (
+            isLoadingSettings = true
             edtOutput.text = rootDir + "dist"
             edtReleaseDate.text = currentDateString()
+            isLoadingSettings = false
 
-            if (doesFileExist iniPath) do loadSettings MaxPkgPackagerRollout
+            if (doesFileExist iniPath) then (
+                loadSettings MaxPkgPackagerRollout
+            ) else (
+                syncVersionState()
+                saveSettings MaxPkgPackagerRollout
+            )
 
+            syncVersionState()
             refreshFiles()
             refreshChangelog()
             refreshLog()
         )
+
+        on edtName changed fieldText do autoSaveSettings()
+        on edtButtonName changed fieldText do autoSaveSettings()
+        on edtDeveloperName changed fieldText do autoSaveSettings()
+        on edtGuid changed fieldText do autoSaveSettings()
+        on edtDescription changed fieldText do autoSaveSettings()
+        on ddlLicense selected selectedIndex do autoSaveSettings()
+        on edtLicenseUrl changed fieldText do autoSaveSettings()
+        on ddlVersionMajor selected selectedIndex do autoSaveSettings()
+        on ddlVersionMinor selected selectedIndex do autoSaveSettings()
+        on ddlVersionPatch selected selectedIndex do autoSaveSettings()
+        on ddlReleaseChannel selected selectedIndex do autoSaveSettings()
+        on edtReleaseDate changed fieldText do autoSaveSettings()
+        on ddlMinMax selected selectedIndex do autoSaveSettings()
+        on ddlRuntime selected selectedIndex do autoSaveSettings()
+        on edtEntry changed fieldText do autoSaveSettings()
+        on edtIcon changed fieldText do autoSaveSettings()
+        on edtHomepage changed fieldText do autoSaveSettings()
+        on edtDocumentation changed fieldText do autoSaveSettings()
+        on edtSupport changed fieldText do autoSaveSettings()
+        on chkCreateMacro changed isChecked do autoSaveSettings()
+        on chkShowToolbar changed isChecked do autoSaveSettings()
+        on edtOutput changed fieldText do autoSaveSettings()
 
         on btnGuidGenerate pressed do (
             if ((trimString edtGuid.text) == "") then (
@@ -980,6 +1128,8 @@
                     edtGuid.text = newGuidString()
                 )
             )
+
+            autoSaveSettings()
         )
 
         on btnGuidCopy pressed do (
@@ -988,21 +1138,24 @@
 
         on btnGuidPaste pressed do (
             edtGuid.text = getClipboardText()
+            autoSaveSettings()
         )
 
         on btnEntryFromSelected pressed do (
             if (lbFiles.selection > 0) do (
                 edtEntry.text = lbFiles.items[lbFiles.selection]
+                autoSaveSettings()
             )
         )
 
         on btnIconBrowse pressed do (
-            local path = getOpenFileName caption:"Select safe SVG icon" types:"SVG (*.svg)|*.svg|All Files (*.*)|*.*|"
+            local filePath = getOpenFileName caption:"Select safe SVG icon" types:"SVG (*.svg)|*.svg|All Files (*.*)|*.*|"
 
-            if (path != undefined) do (
-                if (isValidSafeSvg path) then (
-                    edtIcon.text = path
+            if (filePath != undefined) do (
+                if (isValidSafeSvg filePath) then (
+                    edtIcon.text = filePath
                     addLog "OK" "SVG icon validated"
+                    autoSaveSettings()
                 ) else (
                     messageBox "Selected icon is not a valid safe SVG file." title:"MaxPkg Packager"
                     addLog "ERROR" "Selected icon is not a valid safe SVG file."
@@ -1014,6 +1167,7 @@
 
         on btnIconClear pressed do (
             edtIcon.text = ""
+            autoSaveSettings()
         )
 
         on btnIconPreview pressed do (
@@ -1024,18 +1178,22 @@
 
         on btnOutputBrowse pressed do (
             local folder = getSavePath caption:"Select output folder" initialDir:rootDir
-            if (folder != undefined) do edtOutput.text = folder
+            if (folder != undefined) do (
+                edtOutput.text = folder
+                autoSaveSettings()
+            )
         )
 
         on btnAddFile pressed do (
-            local path = getOpenFileName caption:"Add package file" types:"Package Files (*.*)|*.*|"
+            local filePath = getOpenFileName caption:"Add package file" types:"Package Files (*.*)|*.*|"
 
-            if (path != undefined) do (
-                if (addPackageFile path) do (
-                    addLog "OK" ("Added file: " + (relativePathFromRoot path))
+            if (filePath != undefined) do (
+                if (addPackageFile filePath) do (
+                    addLog "OK" ("Added file: " + (relativePathFromRoot filePath))
                 )
 
                 refreshFiles()
+                autoSaveSettings()
             )
         )
 
@@ -1046,6 +1204,7 @@
                 local added = addFolderFiles folder
                 addLog "OK" ((added as string) + " files added from folder")
                 refreshFiles()
+                autoSaveSettings()
             )
         )
 
@@ -1055,6 +1214,7 @@
             local added = addFolderFiles rootDir
             addLog "OK" ((added as string) + " files scanned from product folder")
             refreshFiles()
+            autoSaveSettings()
         )
 
         on btnRemoveFile pressed do (
@@ -1063,22 +1223,25 @@
             )
 
             refreshFiles()
+            autoSaveSettings()
         )
 
         on btnClearFiles pressed do (
             if (queryBox "Clear package files list?" title:"MaxPkg Packager") do (
                 packageFiles = #()
                 refreshFiles()
+                autoSaveSettings()
             )
         )
 
         on btnAddChange pressed do (
-            local text = trimString edtChangeText.text
+            local changeValue = trimString edtChangeText.text
 
-            if (text != "") do (
-                append changelogItems #((getDropDownText ddlChangeType), text)
+            if (changeValue != "") do (
+                append changelogItems #((getDropDownText ddlChangeType), changeValue)
                 edtChangeText.text = ""
                 refreshChangelog()
+                autoSaveSettings()
             )
         )
 
@@ -1086,6 +1249,7 @@
             if (lbChangelog.selection > 0) do (
                 changelogItems[lbChangelog.selection] = #((getDropDownText ddlChangeType), (trimString edtChangeText.text))
                 refreshChangelog()
+                autoSaveSettings()
             )
         )
 
@@ -1093,6 +1257,7 @@
             if (lbChangelog.selection > 0) do (
                 deleteItem changelogItems lbChangelog.selection
                 refreshChangelog()
+                autoSaveSettings()
             )
         )
 
@@ -1108,11 +1273,6 @@
             loadSettings MaxPkgPackagerRollout
             refreshFiles()
             refreshChangelog()
-            refreshLog()
-        )
-
-        on btnSaveIni pressed do (
-            saveSettings MaxPkgPackagerRollout
             refreshLog()
         )
 
@@ -1140,9 +1300,28 @@
         )
 
         on btnClose pressed do (
-            destroyDialog MaxPkgPackagerRollout
+            try (closeRolloutFloater MaxPkgPackagerFloater) catch()
         )
     )
 
-    createDialog MaxPkgPackagerRollout style:#(#style_titlebar, #style_sysmenu, #style_minimizebox, #style_resizing)
+    rollout MaxPkgPackagerAboutRollout "About" width:740
+    (
+        label lblAboutTitle "MaxPkg Packager for Autodesk 3ds Max" align:#left
+        label lblAboutVersion "" align:#left
+        label lblAboutWebsite "MaxPkg: https://maxpkg.dev" align:#left
+        label lblAboutDeveloper "Developer: Vasyl Lukianenko (https://3dground.net)" align:#left
+        label lblAboutPurpose "Builds a universal MaxPkg-compatible .mzp package from the current product folder." align:#left
+        label lblAboutRoot "" align:#left
+        label lblAboutIni "" align:#left
+
+        on MaxPkgPackagerAboutRollout open do (
+            lblAboutVersion.text = "Version: " + PACKAGER_VERSION
+            lblAboutRoot.text = "Root: " + rootDir
+            lblAboutIni.text = "INI: " + iniPath
+        )
+    )
+
+    MaxPkgPackagerFloater = newRolloutFloater "MaxPkg Packager" 760 900
+    addRollout MaxPkgPackagerRollout MaxPkgPackagerFloater rolledUp:false
+    addRollout MaxPkgPackagerAboutRollout MaxPkgPackagerFloater rolledUp:true
 )
