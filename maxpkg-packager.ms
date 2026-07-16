@@ -515,24 +515,6 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         return true
     )
 
-    fn macroNameFromGuid guid = (
-        return "MaxPkg_" + (substituteString guid "-" "")
-    )
-
-    fn maxScriptStringLiteral sourceContent = (
-        local literalContent = sourceContent as string
-        literalContent = substituteString literalContent "\\" "\\\\"
-        literalContent = substituteString literalContent "\"" "\\\""
-        return "\"" + literalContent + "\""
-    )
-
-    fn maxScriptForwardPathLiteral sourceFilePath = (
-        local literalContent = sourceFilePath as string
-        literalContent = substituteString literalContent "\\" "/"
-        literalContent = substituteString literalContent "\"" "\\\""
-        return "\"" + literalContent + "\""
-    )
-
     fn isSafeRelativePath relPath = (
         local rel = normalizePath relPath
 
@@ -571,6 +553,9 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         if (n == "maxpkg-packager.ms") do return true
         if (n == "maxpkg-packager.ini") do return true
         if (n == "maxpkg-changelog.ini") do return true
+        if (n == "maxpkg-button.mcr") do return true
+        if (n == "mzp.run") do return true
+        if (n == "mzp.run.ms") do return true
 
         return false
     )
@@ -910,7 +895,7 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
             local abs = iniGet ((i as string) + "_abs") iniSection:"files"
             local rel = iniGet ((i as string) + "_rel") iniSection:"files"
 
-            if (abs != "" and rel != "") do (
+            if (abs != "" and rel != "" and not (isExcludedPath abs)) do (
                 append packageFiles #((normalizePath abs), (normalizePath rel))
             )
         )
@@ -932,6 +917,7 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         local packageName = trimString ui.edtName.text
         local buttonName = trimString ui.edtButtonName.text
         local description = trimString ui.edtDescription.text
+        local developerName = trimString ui.edtDeveloperName.text
         local guid = trimString ui.edtGuid.text
         local versionText = buildVersionString ui
         local releaseDate = trimString ui.edtReleaseDate.text
@@ -947,6 +933,7 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         if (packageName == "") do (addLog "ERROR" "Package name is required"; isValid = false)
         if (buttonName == "") do (addLog "ERROR" "Button name is required"; isValid = false)
         if (description == "") do (addLog "ERROR" "Description is required"; isValid = false)
+        if (developerName == "") do (addLog "ERROR" "Developer name is required"; isValid = false)
         if (description.count > 500) do (addLog "ERROR" "Description must be 500 characters or less"; isValid = false)
         if (guid == "" or not (isValidGuid guid)) do (addLog "ERROR" "Package GUID must be a valid UUID"; isValid = false)
         if (versionText == "") do (addLog "ERROR" "Version is required"; isValid = false)
@@ -1104,55 +1091,6 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         return ss as string
     )
 
-    fn buildMacroScript ui = (
-        local ss = stringStream ""
-        local guid = trimString ui.edtGuid.text
-        local buttonText = substituteString (trimString ui.edtButtonName.text) "\"" "\\\""
-        local hasIconFile = (trimString ui.edtIcon.text) != ""
-
-        format "macroScript %\n" (macroNameFromGuid guid) to:ss
-        format "category:\"MaxPkg\"\n" to:ss
-        format "buttonText:\"%\"\n" buttonText to:ss
-        format "tooltip:\"Run %\"\n" buttonText to:ss
-        if (hasIconFile) do (
-            local macroIconFilePath = (ensureTrailingSlash (getDir #userIcons)) + guid + ".svg"
-            local macroIconPath = maxScriptForwardPathLiteral macroIconFilePath
-            format "%\n" ("iconName:" + macroIconPath) to:ss
-        )
-        format "(\n" to:ss
-        format "    on execute do\n" to:ss
-        format "    (\n" to:ss
-        format "        try\n" to:ss
-        format "        (\n" to:ss
-        format "            local packageGuid = \"%\"\n" guid to:ss
-        format "            local packageDir = (getDir #temp) + \"\\\\\" + packageGuid + \"\\\\\"\n" to:ss
-        format "            local manifestIni = packageDir + \"manifest.ini\"\n" to:ss
-        format "            if (not (doesFileExist manifestIni)) do throw (\"Package manifest was not found:\\n\" + manifestIni)\n" to:ss
-        format "            local runtime = getINISetting manifestIni \"package\" \"runtime\"\n" to:ss
-        format "            local entry = getINISetting manifestIni \"package\" \"entry\"\n" to:ss
-        format "            if (entry == undefined or entry == \"\") do throw \"Package entry file is empty.\"\n" to:ss
-        format "            local entryPath = packageDir + entry\n" to:ss
-        format "            if (not (doesFileExist entryPath)) do throw (\"Package entry file was not found:\\n\" + entryPath)\n" to:ss
-        format "\n" to:ss
-        format "            if (runtime == \"python\") then\n" to:ss
-        format "            (\n" to:ss
-        format "                python.ExecuteFile entryPath\n" to:ss
-        format "            )\n" to:ss
-        format "            else\n" to:ss
-        format "            (\n" to:ss
-        format "                fileIn entryPath\n" to:ss
-        format "            )\n" to:ss
-        format "        )\n" to:ss
-        format "        catch\n" to:ss
-        format "        (\n" to:ss
-        format "            messageBox (\"Could not run MaxPkg package.\\\\n\\\\n\" + getCurrentException()) title:\"MaxPkg\"\n" to:ss
-        format "        )\n" to:ss
-        format "    )\n" to:ss
-        format ")\n" to:ss
-
-        return ss as string
-    )
-
     fn buildSampleInstallScript = (
         local ss = stringStream ""
 
@@ -1264,7 +1202,7 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         format "    try (destroyDialog MaxPkgSampleInstallRollout) catch()\n\n" to:ss
         format "    rollout MaxPkgSampleInstallRollout \"Install Complete\" width:430 height:315\n" to:ss
         format "    (\n" to:ss
-        format "        dotNetControl dncInstallInfo \"System.Windows.Forms.TextBox\" height:302 align:#left\n" to:ss
+        format "        dotNetControl dncInstallInfo \"System.Windows.Forms.TextBox\" width: 450 height:302 align:#left offset: [-13, -5] align:#left\n" to:ss
         format "        label lblInstallSpacer \"\" align:#left across:2 offset:[0, 4]\n" to:ss
         format "        button btnCloseInstallInfo \"Close\" width:80 height:24 align:#right offset:[0, 4]\n\n" to:ss
         format "        on MaxPkgSampleInstallRollout open do (\n" to:ss
@@ -1383,7 +1321,7 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         format "    try (destroyDialog MaxPkgSampleUninstallRollout) catch()\n\n" to:ss
         format "    rollout MaxPkgSampleUninstallRollout \"Uninstall Complete\" width:430 height:315\n" to:ss
         format "    (\n" to:ss
-        format "        dotNetControl dncUninstallInfo \"System.Windows.Forms.TextBox\" height:302 align:#left\n" to:ss
+        format "        dotNetControl dncUninstallInfo \"System.Windows.Forms.TextBox\" width: 450 height:302 align:#left offset: [-13, -5] align:#left\n" to:ss
         format "        label lblUninstallSpacer \"\" align:#left across:2 offset:[0, 4]\n" to:ss
         format "        button btnCloseUninstallInfo \"Close\" width:80 height:24 align:#right offset:[0, 4]\n\n" to:ss
         format "        on MaxPkgSampleUninstallRollout open do (\n" to:ss
@@ -1443,16 +1381,42 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         return ss as string
     )
 
-    fn buildMzpEntryScript ui = (
+    fn buildMzpEntryScript = (
         local ss = stringStream ""
-        local packageGuid = trimString ui.edtGuid.text
 
         format "(\n" to:ss
-        format "    local packageGuid = %\n\n" (maxScriptStringLiteral packageGuid) to:ss
         format "    fn maxPkgEntryEnsureSlash folderPath = (\n" to:ss
         format "        if (folderPath == undefined or folderPath == \"\") do return \"\"\n" to:ss
         format "        if ((substring folderPath folderPath.count 1) == \"\\\\\") do return folderPath\n" to:ss
         format "        return folderPath + \"\\\\\"\n" to:ss
+        format "    )\n\n" to:ss
+        format "    fn maxPkgEntryMacroNameFromGuid packageGuid = (\n" to:ss
+        format "        return \"MaxPkg_\" + (substituteString packageGuid \"-\" \"\")\n" to:ss
+        format "    )\n\n" to:ss
+        format "    fn maxPkgEntryStringLiteral sourceContent = (\n" to:ss
+        format "        local literalContent = sourceContent as string\n" to:ss
+        format "        literalContent = substituteString literalContent \"\\\\\" \"\\\\\\\\\"\n" to:ss
+        format "        literalContent = substituteString literalContent \"\\\"\" \"\\\\\\\"\"\n" to:ss
+        format "        return \"\\\"\" + literalContent + \"\\\"\"\n" to:ss
+        format "    )\n\n" to:ss
+        format "    fn maxPkgEntryForwardPathLiteral sourceFilePath = (\n" to:ss
+        format "        local literalContent = sourceFilePath as string\n" to:ss
+        format "        literalContent = substituteString literalContent \"\\\\\" \"/\"\n" to:ss
+        format "        literalContent = substituteString literalContent \"\\\"\" \"\\\\\\\"\"\n" to:ss
+        format "        return \"\\\"\" + literalContent + \"\\\"\"\n" to:ss
+        format "    )\n\n" to:ss
+        format "    fn maxPkgEntryWriteTextFile targetFilePath fileContent = (\n" to:ss
+        format "        local fileStream = undefined\n\n" to:ss
+        format "        try (\n" to:ss
+        format "            fileStream = createFile targetFilePath\n" to:ss
+        format "            if (fileStream == undefined) do return false\n" to:ss
+        format "            format \"%\" fileContent to:fileStream\n" "%" to:ss
+        format "            close fileStream\n" to:ss
+        format "            return true\n" to:ss
+        format "        ) catch (\n" to:ss
+        format "            try (if (fileStream != undefined) do close fileStream) catch()\n" to:ss
+        format "            return false\n" to:ss
+        format "        )\n" to:ss
         format "    )\n\n" to:ss
         format "    fn maxPkgEntryInstallIcon entryFolder packageGuid = (\n" to:ss
         format "        local sourceIconFile = entryFolder + \"icons\\\\icon.svg\"\n" to:ss
@@ -1467,6 +1431,74 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         format "            return false\n" to:ss
         format "        )\n" to:ss
         format "    )\n\n" to:ss
+        format "    fn maxPkgEntryBuildMacroScript entryFolder packageGuid = (\n" to:ss
+        format "        local manifestFilePath = entryFolder + \"manifest.ini\"\n" to:ss
+        format "        local packageButtonText = getINISetting manifestFilePath \"package\" \"buttonName\"\n" to:ss
+        format "        local packageIcon = getINISetting manifestFilePath \"package\" \"icon\"\n" to:ss
+        format "        local macroIconFilePath = (maxPkgEntryEnsureSlash (getDir #userIcons)) + packageGuid + \".svg\"\n" to:ss
+        format "        local macroContent = \"\"\n\n" to:ss
+        format "        if (packageButtonText == undefined or packageButtonText == \"\") do packageButtonText = packageGuid\n\n" to:ss
+        format "        macroContent += \"macroScript \" + (maxPkgEntryMacroNameFromGuid packageGuid) + \"\\n\"\n" to:ss
+        format "        macroContent += \"category:\\\"MaxPkg\\\"\\n\"\n" to:ss
+        format "        macroContent += \"buttonText:\" + (maxPkgEntryStringLiteral packageButtonText) + \"\\n\"\n" to:ss
+        format "        macroContent += \"tooltip:\" + (maxPkgEntryStringLiteral (\"Run \" + packageButtonText)) + \"\\n\"\n" to:ss
+        format "        if (packageIcon != undefined and packageIcon != \"\") do macroContent += \"iconName:\" + (maxPkgEntryForwardPathLiteral macroIconFilePath) + \"\\n\"\n" to:ss
+        format "        macroContent += \"(\\n\"\n" to:ss
+        format "        macroContent += \"    on execute do\\n\"\n" to:ss
+        format "        macroContent += \"    (\\n\"\n" to:ss
+        format "        macroContent += \"        -- Generated by MaxPkg. https://maxpkg.dev\\n\"\n" to:ss
+        format "        macroContent += \"        -- This file was created during package installation for the current 3ds Max profile.\\n\"\n" to:ss
+        format "        macroContent += \"        -- Package GUID: \" + packageGuid + \"\\n\"\n" to:ss
+        format "        macroContent += \"        try\\n\"\n" to:ss
+        format "        macroContent += \"        (\\n\"\n" to:ss
+        format "        macroContent += \"            local packageGuid = \" + (maxPkgEntryStringLiteral packageGuid) + \"\\n\"\n" to:ss
+        format "        macroContent += \"            local packageDir = (getDir #temp) + \" + (maxPkgEntryStringLiteral \"\\\\\") + \" + packageGuid + \" + (maxPkgEntryStringLiteral \"\\\\\") + \"\\n\"\n" to:ss
+        format "        macroContent += \"            local manifestIni = packageDir + \" + (maxPkgEntryStringLiteral \"manifest.ini\") + \"\\n\"\n" to:ss
+        format "        macroContent += \"            if (not (doesFileExist manifestIni)) do throw (\" + (maxPkgEntryStringLiteral \"Package manifest was not found: \") + \" + manifestIni)\\n\"\n" to:ss
+        format "        macroContent += \"            local runtime = getINISetting manifestIni \" + (maxPkgEntryStringLiteral \"package\") + \" \" + (maxPkgEntryStringLiteral \"runtime\") + \"\\n\"\n" to:ss
+        format "        macroContent += \"            local entry = getINISetting manifestIni \" + (maxPkgEntryStringLiteral \"package\") + \" \" + (maxPkgEntryStringLiteral \"entry\") + \"\\n\"\n" to:ss
+        format "        macroContent += \"            if (entry == undefined or entry == \" + (maxPkgEntryStringLiteral \"\") + \") do throw \" + (maxPkgEntryStringLiteral \"Package entry file is empty.\") + \"\\n\"\n" to:ss
+        format "        macroContent += \"            local entryPath = packageDir + entry\\n\"\n" to:ss
+        format "        macroContent += \"            if (not (doesFileExist entryPath)) do throw (\" + (maxPkgEntryStringLiteral \"Package entry file was not found: \") + \" + entryPath)\\n\"\n" to:ss
+        format "        macroContent += \"            if (runtime == \" + (maxPkgEntryStringLiteral \"python\") + \") then\\n\"\n" to:ss
+        format "        macroContent += \"            (\\n\"\n" to:ss
+        format "        macroContent += \"                python.ExecuteFile entryPath\\n\"\n" to:ss
+        format "        macroContent += \"            )\\n\"\n" to:ss
+        format "        macroContent += \"            else\\n\"\n" to:ss
+        format "        macroContent += \"            (\\n\"\n" to:ss
+        format "        macroContent += \"                fileIn entryPath\\n\"\n" to:ss
+        format "        macroContent += \"            )\\n\"\n" to:ss
+        format "        macroContent += \"        )\\n\"\n" to:ss
+        format "        macroContent += \"        catch\\n\"\n" to:ss
+        format "        macroContent += \"        (\\n\"\n" to:ss
+        format "        macroContent += \"            messageBox (\" + (maxPkgEntryStringLiteral \"Could not run MaxPkg package.\") + \" + getCurrentException()) title:\" + (maxPkgEntryStringLiteral \"MaxPkg\") + \"\\n\"\n" to:ss
+        format "        macroContent += \"        )\\n\"\n" to:ss
+        format "        macroContent += \"    )\\n\"\n" to:ss
+        format "        macroContent += \")\\n\"\n\n" to:ss
+        format "        return macroContent\n" to:ss
+        format "    )\n\n" to:ss
+        format "    fn maxPkgEntryInstallMacroButton entryFolder packageGuid = (\n" to:ss
+        format "        local manifestFilePath = entryFolder + \"manifest.ini\"\n" to:ss
+        format "        local createMacroButton = getINISetting manifestFilePath \"package\" \"createMacroButton\"\n" to:ss
+        format "        local macroFilePath = (maxPkgEntryEnsureSlash (getDir #userMacros)) + \"maxpkg-\" + packageGuid + \".mcr\"\n" to:ss
+        format "        local macroContent = \"\"\n\n" to:ss
+        format "        if (createMacroButton == undefined) do createMacroButton = \"\"\n" to:ss
+        format "        createMacroButton = toLower createMacroButton\n\n" to:ss
+        format "        if (createMacroButton != \"true\") do return true\n\n" to:ss
+        format "        maxPkgEntryInstallIcon entryFolder packageGuid\n" to:ss
+        format "        macroContent = maxPkgEntryBuildMacroScript entryFolder packageGuid\n\n" to:ss
+        format "        if (not (maxPkgEntryWriteTextFile macroFilePath macroContent)) do (\n" to:ss
+        format "            messageBox (\"Could not create package macro button:\\n\" + macroFilePath) title:\"MaxPkg\"\n" to:ss
+        format "            return false\n" to:ss
+        format "        )\n\n" to:ss
+        format "        try (\n" to:ss
+        format "            fileIn macroFilePath\n" to:ss
+        format "            return true\n" to:ss
+        format "        ) catch (\n" to:ss
+        format "            messageBox (\"Could not load package macro button:\\n\" + macroFilePath + \"\\n\\n\" + getCurrentException()) title:\"MaxPkg\"\n" to:ss
+        format "            return false\n" to:ss
+        format "        )\n" to:ss
+        format "    )\n\n" to:ss
         format "    fn maxPkgEntryRunOptionalScript scriptFilePath = (\n" to:ss
         format "        if (scriptFilePath == undefined or scriptFilePath == \"\") do return false\n" to:ss
         format "        if (not (doesFileExist scriptFilePath)) do return true\n\n" to:ss
@@ -1478,10 +1510,15 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         format "            return false\n" to:ss
         format "        )\n" to:ss
         format "    )\n\n" to:ss
-        format "    local entryFolder = maxPkgEntryEnsureSlash (getFilenamePath (getSourceFileName()))\n\n" to:ss
-        format "    maxPkgEntryInstallIcon entryFolder packageGuid\n" to:ss
-        format "    maxPkgEntryRunOptionalScript (entryFolder + \"maxpkg-button.mcr\")\n" to:ss
-        format "    maxPkgEntryRunOptionalScript (entryFolder + \"install.ms\")\n" to:ss
+        format "    local entryFolder = maxPkgEntryEnsureSlash (getFilenamePath (getSourceFileName()))\n" to:ss
+        format "    local manifestFilePath = entryFolder + \"manifest.ini\"\n" to:ss
+        format "    local packageGuid = getINISetting manifestFilePath \"package\" \"packageGuid\"\n\n" to:ss
+        format "    if (packageGuid == undefined or packageGuid == \"\") then (\n" to:ss
+        format "        messageBox (\"Package GUID was not found in manifest:\\n\" + manifestFilePath) title:\"MaxPkg\"\n" to:ss
+        format "    ) else (\n" to:ss
+        format "        maxPkgEntryInstallMacroButton entryFolder packageGuid\n" to:ss
+        format "        maxPkgEntryRunOptionalScript (entryFolder + \"install.ms\")\n" to:ss
+        format "    )\n" to:ss
         format ")\n" to:ss
 
         return ss as string
@@ -1555,12 +1592,7 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
                 addLog "OK" "SVG icon copied"
             )
 
-            if (ui.chkCreateMacro.checked) do (
-                writeTextFile (buildRoot + "maxpkg-button.mcr") (buildMacroScript ui)
-                addLog "OK" "maxpkg-button.mcr generated"
-            )
-
-            writeTextFile (buildRoot + "mzp.run.ms") (buildMzpEntryScript ui)
+            writeTextFile (buildRoot + "mzp.run.ms") (buildMzpEntryScript())
             addLog "OK" "mzp.run.ms generated"
 
             writeTextFile (buildRoot + "mzp.run") (buildMzpRunScript ui)
@@ -1948,11 +1980,16 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
 
         on btnRemoveFile pressed do (
             if (lbFiles.selection > 0 and lbFiles.selection <= packageFiles.count) do (
-                deleteItem packageFiles lbFiles.selection
-            )
+                local selectedIndex = lbFiles.selection
+                local selectedFileName = lbFiles.items[selectedIndex]
+                local shouldRemoveFile = queryBox ("Remove this file from package list?\n\n" + selectedFileName) title:"MaxPkg Packager"
 
-            refreshFiles()
-            autoSaveSettings()
+                if (shouldRemoveFile) do (
+                    deleteItem packageFiles selectedIndex
+                    refreshFiles()
+                    autoSaveSettings()
+                )
+            )
         )
 
         on btnAddChange pressed do (

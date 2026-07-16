@@ -2,3 +2,6 @@ maxpkg-packager.ini
 maxpkg-changelog.ini
 test.ms
 /dist
+uninstall.ms
+install.ms
+maxpkg-icon.svg
