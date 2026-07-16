@@ -1671,10 +1671,10 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
 			editText edtButtonName ""  width: 235 align: #right
 
 			label lblGuid "Package GUID"  align: #left across: 5 offset: [0, 4]
-			editText edtGuid "" width:318 offset: [-39, 2] align: #left
-			button btnGuidGenerate "Generate" width:70 offset: [150, 0] align: #left
-			button btnGuidCopy "Copy"  width:55  offset: [85, 0] align: #left
-			button btnGuidPaste "Paste" width:55 offset: [5, 0] align: #left
+			editText edtGuid "" readOnly: true width: 235 offset: [-39, 2] align: #left
+			button btnGuidGenerate "Generate" width:80 offset: [69, 0] align: #left
+			button btnGuidCopy "Copy"  width: 80  offset: [14, 0] align: #left
+			button btnGuidPaste "Paste" width: 80 offset: [-41, 0] align: #left
 
 			label lblDescription "Description" align: #left across: 2
 			editText edtDescription "" width:615 height:58 multiline:true align: #left offset: [-255, 0]
@@ -1696,12 +1696,6 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
 			dropdownList ddlMinMax "" width: 52 items:(maxYearItems()) selection:1 align: #left offset: [-71, 0]
 			checkbox chkCreateMacro "Create 3ds Max Macro Button" checked:true  align: #left offset: [-39, 0]
 			checkbox chkShowToolbar "Show In MaxPkg Toolbar"  checked:true align: #left offset: [-25, 0]
-			
-			label lblIcon "SVG Icon" align: #left across: 5
-			editText edtIcon "" width: 348 align: #left offset: [-39, 0]
-			button btnIconBrowse "Browse" width:80 align: #right offset: [110, 0]
-			button btnIconClear "Clear"  width:80 align: #right offset: [55, 0]
-			button btnIconPreview "Preview" width:80 align: #right 
 		)
 
         group "Info"(
@@ -1718,28 +1712,32 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
 			label lblDocs "Documentation URL"  across: 4 align: #left
 			editText edtDocumentation ""  width:235  align: #left offset: [-75, 0]
 			label lblSupport "Support URL" align: #left
-			editText edtSupport "" width:235 align: #right						
+			editText edtSupport "" width:235 align: #right
 		)
 
-        group "Files List" (
+        group "Files" (
 			label lblOutput "Output Folder" align: #left across: 3 offset: [0, 5]
 			editText edtOutput "" width: 524 align: #left offset: [-135, 5]
 			button btnOutputBrowse "Browse" width:80 align: #right offset: [0, 2]
-			
+
+			label lblIcon "SVG Icon" align: #left across: 5
+			editText edtIcon "" width: 348 align: #left offset: [-39, 0]
+			button btnIconBrowse "Browse" width:80 align: #right offset: [110, 0]
+			button btnIconClear "Clear"  width:80 align: #right offset: [55, 0]
+			button btnIconPreview "Preview" width:80 align: #right
+
 			listBox lbFiles "" height:7
-			
+
 			button btnAddFile "[+] Add Files" width: 80 align: #left across: 6
 			button btnAddFolder "Add Folder" width:80 align: #left offset: [-31, 0]
 			button btnScanRoot "Scan Folder" width:80 align: #left offset: [-62, 0]
-			button btnRemoveFile "[-] Remove" width:80 align: #left offset:[-93, 0]	
-			
-			button btnCreateSampleInstall "Create sample install.ms" width:150 align:#right offset:[-39, 0]
-            button btnCreateSampleUninstall "Create sample uninstall.ms" width:150 align:#right 		
-			
+			button btnRemoveFile "[-] Remove" width:80 align: #left offset:[-93, 0]
 
-         
+			button btnCreateSampleInstall "Sample install.ms" width:120 align:#right offset:[-9, 0]
+            button btnCreateSampleUninstall "Sample uninstall.ms" width:120 align:#right
+
 		)
-		
+
 		group "Runtime" (
 			label lblRuntime "Launch" align: #left across: 5 offset: [0, 4]
 			dropdownList ddlRuntime "" width:120 items:#("maxscript", "python") selection:1 align: #left offset: [-37, 0]
@@ -1879,8 +1877,18 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         )
 
         on btnGuidPaste pressed do (
-            edtGuid.text = getClipboardText()
-            autoSaveSettings()
+            local pastedGuidText = trimString (getClipboardText())
+            local currentGuidText = trimString edtGuid.text
+            local shouldPasteGuid = true
+
+            if (currentGuidText != "" and pastedGuidText != currentGuidText) do (
+                shouldPasteGuid = queryBox ("Replace current Package GUID?\n\nCurrent GUID:\n" + currentGuidText + "\n\nNew GUID:\n" + pastedGuidText + "\n\nPackage GUID is important. It is linked to the MaxPkg website and used to verify package archives. If you replace it, existing archives may no longer be accepted.") title:"MaxPkg Packager"
+            )
+
+            if (shouldPasteGuid) do (
+                edtGuid.text = pastedGuidText
+                autoSaveSettings()
+            )
         )
 
         on btnEntryFromSelected pressed do (
