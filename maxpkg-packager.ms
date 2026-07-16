@@ -24,7 +24,12 @@
     local logItems = #()
     local isLoadingSettings = false
     global MaxPkgPackagerFloater
+    global MaxPkgPackagerLogRollout
+    local isLogDialogOpen = false
 
+    local showLogWindow
+    local refreshLogWindow
+    local closeLogWindow
 
     fn trimString s tag:" " = (
         if (s == undefined) do return ""
@@ -81,8 +86,9 @@
         return false
     )
 
-    fn addLog level t = (
-        append logItems ("[" + level + "] " + t)
+    fn addLog level logMessage = (
+        append logItems ("[" + level + "] " + logMessage)
+        try (showLogWindow()) catch()
         return true
     )
 
@@ -569,7 +575,7 @@
             )
         )
 
-        addLog "OK" "INI loaded"
+        --addLog "OK" "INI loaded"
         isLoadingSettings = false
         saveSettings ui
         return true
@@ -938,6 +944,9 @@
     )
 
 
+    try (destroyDialog MaxPkgPackagerLogRollout) catch()
+    isLogDialogOpen = false
+
     try (closeRolloutFloater MaxPkgPackagerFloater) catch()
 
     rollout MaxPkgPackagerRollout "Packager" width:740 height:1070
@@ -1031,21 +1040,14 @@
 			button btnRemoveChange "Remove" width:80 align: #right
 		)
 
-        groupBox grpLog "Log" pos:[10,866] width:720 height:128
-        editText edtLog "" pos:[20,888] width:695 height:95 multiline:true readOnly:true
-
-        groupBox grpActions "Actions" pos:[10,1002] width:720 height:54
-        button btnLoadIni "Load INI" pos:[20,1024] width:80 height:24
-        button btnValidate "Validate" pos:[105,1024] width:80 height:24
-        button btnPreviewManifest "Preview Manifest" pos:[190,1024] width:110 height:24
-        button btnBuild "Build MZP" pos:[305,1024] width:90 height:24
-        button btnOpenOutput "Open Output Folder" pos:[400,1024] width:125 height:24
-        button btnClose "Close" pos:[640,1024] width:70 height:24
+       
+		button btnValidate "Validate" width: 120 height:28 align:#left across: 2 offset: [0, 15]
+		button btnBuild "Build MZP" width: 120 height:28 align:#right offset: [0, 15]
 
 
         fn refreshFiles = (
             lbFiles.items = getPackageFileNames()
-            edtLog.text = getLogText()
+            refreshLogWindow()
             return true
         )
 
@@ -1061,7 +1063,7 @@
         )
 
         fn refreshLog = (
-            edtLog.text = getLogText()
+            refreshLogWindow()
             return true
         )
 
@@ -1269,39 +1271,96 @@
             )
         )
 
-        on btnLoadIni pressed do (
-            loadSettings MaxPkgPackagerRollout
-            refreshFiles()
-            refreshChangelog()
-            refreshLog()
-        )
-
         on btnValidate pressed do (
             saveSettings MaxPkgPackagerRollout
             validateSettings MaxPkgPackagerRollout
             refreshLog()
-        )
-
-        on btnPreviewManifest pressed do (
-            if (validateSettings MaxPkgPackagerRollout) do (
-                messageBox (buildManifestIni MaxPkgPackagerRollout) title:"manifest.ini preview"
-            )
-
-            refreshLog()
-        )
+        )        
 
         on btnBuild pressed do (
             buildPackage MaxPkgPackagerRollout
             refreshLog()
         )
 
-        on btnOpenOutput pressed do (
-            if (edtOutput.text != "") do shellLaunch edtOutput.text ""
+        on MaxPkgPackagerRollout close do (
+            closeLogWindow()
+        )
+    )
+
+    rollout MaxPkgPackagerLogRollout "Log" width:700 height:100
+    (
+
+		dotNetControl dncLogContent "System.Windows.Forms.TextBox" height:300 align:#left
+
+		button btnClearLogWindow "Clear Log" width:80 height:24 align:#left across:2
+		button btnCloseLogWindow "Close" width:80 height:24 align:#right
+
+
+        on MaxPkgPackagerLogRollout open do (
+            local scrollBarsClass = dotNetClass "System.Windows.Forms.ScrollBars"
+
+            isLogDialogOpen = true
+            dncLogContent.Multiline = true
+            dncLogContent.ReadOnly = true
+            dncLogContent.WordWrap = true
+            dncLogContent.ScrollBars = scrollBarsClass.Vertical
+            dncLogContent.Text = getLogText()
         )
 
-        on btnClose pressed do (
-            try (closeRolloutFloater MaxPkgPackagerFloater) catch()
+        on MaxPkgPackagerLogRollout close do (
+            isLogDialogOpen = false
         )
+
+        on btnClearLogWindow pressed do (
+            clearLog()
+            refreshLogWindow()
+        )
+
+        on btnCloseLogWindow pressed do (
+            closeLogWindow()
+        )
+    )
+
+    fn refreshLogWindow = (
+        local isRefreshed = true
+
+        if (isLogDialogOpen) do (
+            try (
+                MaxPkgPackagerLogRollout.dncLogContent.Text = getLogText()
+            ) catch (
+                isLogDialogOpen = false
+                isRefreshed = false
+            )
+        )
+
+        return isRefreshed
+    )
+
+    fn showLogWindow = (
+        if (isLogDialogOpen) do (
+            if (not (refreshLogWindow())) do isLogDialogOpen = false
+        )
+
+        if (not isLogDialogOpen) do (
+            try (
+                createDialog MaxPkgPackagerLogRollout width:720 height:340
+            ) catch (
+                isLogDialogOpen = false
+                return false
+            )
+        )
+
+        refreshLogWindow()
+        return true
+    )
+
+    fn closeLogWindow = (
+        if (isLogDialogOpen) do (
+            try (destroyDialog MaxPkgPackagerLogRollout) catch()
+            isLogDialogOpen = false
+        )
+
+        return true
     )
 
     rollout MaxPkgPackagerAboutRollout "About" width:740
