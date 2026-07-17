@@ -482,6 +482,54 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         return channel
     )
 
+    fn isSafePackageDisplayText sourceContent = (
+        local allowedChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 -_"
+        local sourceString = sourceContent as string
+
+        for i in 1 to sourceString.count do (
+            local charText = substring sourceString i 1
+            if ((findString allowedChars charText) == undefined) do return false
+        )
+
+        return true
+    )
+
+    fn packageSlugFromName sourceContent = (
+        local sourceString = lowerString (trimString (sourceContent as string))
+        local allowedChars = "abcdefghijklmnopqrstuvwxyz0123456789_"
+        local slugText = ""
+        local previousWasDash = false
+
+        for i in 1 to sourceString.count do (
+            local charText = substring sourceString i 1
+
+            if (charText == " " or charText == "-") then (
+                if (not previousWasDash and slugText != "") do (
+                    slugText += "-"
+                    previousWasDash = true
+                )
+            ) else if ((findString allowedChars charText) != undefined) then (
+                slugText += charText
+                previousWasDash = false
+            )
+        )
+
+        while (slugText.count > 0 and (substring slugText slugText.count 1) == "-") do (
+            slugText = substring slugText 1 (slugText.count - 1)
+        )
+
+        if (slugText == "") do slugText = "package"
+        return slugText
+    )
+
+    fn outputMzpFileName ui = (
+        local slugText = packageSlugFromName ui.edtName.text
+        local packageGuid = trimString ui.edtGuid.text
+        local versionText = buildVersionString ui
+
+        return slugText + "@" + versionText + "@" + packageGuid + ".mzp"
+    )
+
     fn canCompileEntryFile ui = (
         local entryExt = lowerString (getFilenameType (normalizePath (trimString ui.edtEntry.text)))
 
@@ -961,6 +1009,8 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
 
         if (packageName == "") do (addLog "ERROR" "Package name is required"; isValid = false)
         if (buttonName == "") do (addLog "ERROR" "Button name is required"; isValid = false)
+        if (packageName != "" and not (isSafePackageDisplayText packageName)) do (addLog "ERROR" "Package name allows only A-Z, a-z, 0-9, space, hyphen, and underscore"; isValid = false)
+        if (buttonName != "" and not (isSafePackageDisplayText buttonName)) do (addLog "ERROR" "Button name allows only A-Z, a-z, 0-9, space, hyphen, and underscore"; isValid = false)
         if (description == "") do (addLog "ERROR" "Description is required"; isValid = false)
         if (developerName == "") do (addLog "ERROR" "Developer name is required"; isValid = false)
         if (description.count > 500) do (addLog "ERROR" "Description must be 500 characters or less"; isValid = false)
@@ -1619,7 +1669,7 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         local guid = trimString ui.edtGuid.text
         local outputFolder = ensureTrailingSlash ui.edtOutput.text
         local buildRoot = ensureTrailingSlash ((getDir #temp) + "\\maxpkg-packager-build-" + guid)
-        local outputFile = outputFolder + guid + ".mzp"
+        local outputFile = outputFolder + outputMzpFileName ui
         local sourceEntryPath = normalizePath (trimString ui.edtEntry.text)
         local shouldCompileEntry = shouldCompileEntryFile ui
         local isPackageBuilt = false
@@ -1730,6 +1780,10 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
 
     rollout MaxPkgPackagerRollout "Packager" width:740 height:1070
     (
+        local previousPackageNameText = ""
+        local previousButtonNameText = ""
+        local isRevertingSafeDisplayText = false
+
         group "Important Info" (
 			label lblName "Package Name" align: #left across: 4
 			editText edtName "" width:235 align: #left offset: [-75, 0]
@@ -1878,6 +1932,20 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
             return true
         )
 
+        fn syncSafeDisplayText controlRef fieldLabel previousContent = (
+            local incomingContent = controlRef.text
+
+            if (isSafePackageDisplayText incomingContent) do return incomingContent
+
+            messageBox (fieldLabel + " allows only A-Z, a-z, 0-9, space, hyphen, and underscore.") title:"MaxPkg Packager"
+
+            isRevertingSafeDisplayText = true
+            controlRef.text = previousContent
+            isRevertingSafeDisplayText = false
+
+            return previousContent
+        )
+
         fn autoSaveSettings = (
             saveSettings MaxPkgPackagerRollout
             return true
@@ -1915,6 +1983,8 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
 
             syncVersionState()
             syncCompileEntryState()
+            previousPackageNameText = edtName.text
+            previousButtonNameText = edtButtonName.text
             activeChangelogVersion = buildVersionString MaxPkgPackagerRollout
             if (not (loadChangelogForVersion activeChangelogVersion)) do (
                 changelogItems = #()
@@ -1927,8 +1997,19 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
             refreshLog()
         )
 
-        on edtName changed fieldText do autoSaveSettings()
-        on edtButtonName changed fieldText do autoSaveSettings()
+        on edtName changed fieldText do (
+            if (not isRevertingSafeDisplayText) do (
+                previousPackageNameText = syncSafeDisplayText edtName "Package Name" previousPackageNameText
+                autoSaveSettings()
+            )
+        )
+
+        on edtButtonName changed fieldText do (
+            if (not isRevertingSafeDisplayText) do (
+                previousButtonNameText = syncSafeDisplayText edtButtonName "Button Name" previousButtonNameText
+                autoSaveSettings()
+            )
+        )
         on edtDeveloperName changed fieldText do autoSaveSettings()
         on edtGuid changed fieldText do autoSaveSettings()
         on edtDescription changed fieldText do autoSaveSettings()
