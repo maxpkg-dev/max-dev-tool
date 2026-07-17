@@ -482,6 +482,32 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         return channel
     )
 
+    fn canCompileEntryFile ui = (
+        local entryExt = lowerString (getFilenameType (normalizePath (trimString ui.edtEntry.text)))
+
+        return entryExt == ".ms"
+    )
+
+    fn shouldCompileEntryFile ui = (
+        if (not (canCompileEntryFile ui)) do return false
+        return ui.chkCompileEntry.checked
+    )
+
+    fn compiledEntryPath entryFilePath = (
+        local normalizedEntry = normalizePath entryFilePath
+        local entryFolder = getFilenamePath normalizedEntry
+        local entryBaseFile = getFilenameFile normalizedEntry
+
+        return entryFolder + entryBaseFile + ".mse"
+    )
+
+    fn manifestEntryPath ui = (
+        local entryFilePath = normalizePath (trimString ui.edtEntry.text)
+
+        if (shouldCompileEntryFile ui) do return compiledEntryPath entryFilePath
+        return entryFilePath
+    )
+
     fn copySvgIconToRoot sourceFilePath = (
         local sourceIconFile = normalizePath sourceFilePath
         local rootIconFile = normalizePath ((ensureTrailingSlash rootDir) + "maxpkg-icon.svg")
@@ -833,8 +859,8 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         iniSet "releaseDate" ui.edtReleaseDate.text
         iniSet "min3dsMax" (selectedMinMaxYear ui)
         iniSet "max3dsMax" ((currentMaxYearPlusOne()) as string)
-        iniSet "runtime" (getDropDownText ui.ddlRuntime)
         iniSet "entry" ui.edtEntry.text
+        iniSet "compileEntry" (boolToString ui.chkCompileEntry.checked)
         iniSet "svgIcon" ui.edtIcon.text
         iniSet "homepage" ui.edtHomepage.text
         iniSet "documentation" ui.edtDocumentation.text
@@ -880,8 +906,8 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
 
         if (not (setDropDownText ui.ddlMinMax (iniGet "min3dsMax"))) do setDropDownText ui.ddlMinMax "2012"
 
-        if (not (setDropDownText ui.ddlRuntime (iniGet "runtime"))) do setDropDownText ui.ddlRuntime "maxscript"
         ui.edtEntry.text = iniGet "entry"
+        ui.chkCompileEntry.checked = iniGetBool "compileEntry" defaultValue:false
         ui.edtIcon.text = iniGet "svgIcon"
         ui.edtHomepage.text = iniGet "homepage"
         ui.edtDocumentation.text = iniGet "documentation"
@@ -924,8 +950,8 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         local guid = trimString ui.edtGuid.text
         local versionText = buildVersionString ui
         local releaseDate = trimString ui.edtReleaseDate.text
-        local runtime = getDropDownText ui.ddlRuntime
         local entry = normalizePath (trimString ui.edtEntry.text)
+        local isEntryCompileEnabled = shouldCompileEntryFile ui
         local iconFile = normalizePath (trimString ui.edtIcon.text)
         local minMax = (selectedMinMaxYear ui) as integer
         local maxMax = currentMaxYearPlusOne()
@@ -946,8 +972,6 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         if ((getDropDownText ui.ddlLicense) == "") do (addLog "ERROR" "License is required"; isValid = false)
         if (minMax == undefined or maxMax == undefined) do (addLog "ERROR" "Min and max 3ds Max versions must be numbers"; isValid = false)
         if (minMax != undefined and maxMax != undefined and minMax > maxMax) do (addLog "ERROR" "Min 3ds Max version must be <= max version"; isValid = false)
-        if (runtime != "maxscript" and runtime != "python") do (addLog "ERROR" "Runtime must be maxscript or python"; isValid = false)
-
         if (entry == "") then (
             addLog "ERROR" "Entry file is required"
             isValid = false
@@ -961,8 +985,8 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
                 local ext = lowerString (getFilenameType entry)
 
                 if (not (doesFileExist entryItem[1])) do (addLog "ERROR" "Entry file does not exist"; isValid = false)
-                if (runtime == "maxscript" and ext != ".ms" and ext != ".mse") do (addLog "ERROR" "MaxScript runtime requires .ms or .mse entry file"; isValid = false)
-                if (runtime == "python" and ext != ".py") do (addLog "ERROR" "Python runtime requires .py entry file"; isValid = false)
+                if (ext != ".ms" and ext != ".mse" and ext != ".py") do (addLog "ERROR" "Entry file must be .ms, .mse, or .py"; isValid = false)
+                if (isEntryCompileEnabled and ext != ".ms") do (addLog "ERROR" "Entry compile requires .ms entry file"; isValid = false)
             )
         )
 
@@ -1018,8 +1042,8 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         format "%" (iniLine "version" (buildVersionString ui)) to:ss
         format "%" (iniLine "releaseChannel" (selectedReleaseChannel ui)) to:ss
         format "%" (iniLine "releaseDate" ui.edtReleaseDate.text) to:ss
-        format "%" (iniLine "runtime" (getDropDownText ui.ddlRuntime)) to:ss
-        format "%" (iniLine "entry" (normalizePath ui.edtEntry.text)) to:ss
+        format "%" (iniLine "entry" (manifestEntryPath ui)) to:ss
+        format "%" (iniLine "compileEntry" (boolToString (shouldCompileEntryFile ui))) to:ss
         format "%" (iniLine "icon" iconPath) to:ss
         format "%" (iniLine "license" (getDropDownText ui.ddlLicense)) to:ss
         format "%" (iniLine "licenseUrl" ui.edtLicenseUrl.text) to:ss
@@ -1063,8 +1087,8 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         format "  \"version\": \"%\",\n" (escapeJson (buildVersionString ui)) to:ss
         format "  \"releaseChannel\": \"%\",\n" (escapeJson (selectedReleaseChannel ui)) to:ss
         format "  \"releaseDate\": \"%\",\n" (escapeJson (trimString ui.edtReleaseDate.text)) to:ss
-        format "  \"runtime\": \"%\",\n" (escapeJson (getDropDownText ui.ddlRuntime)) to:ss
-        format "  \"entry\": \"%\",\n" (escapeJson (normalizePath (trimString ui.edtEntry.text))) to:ss
+        format "  \"entry\": \"%\",\n" (escapeJson (manifestEntryPath ui)) to:ss
+        format "  \"compileEntry\": %, \n" (boolToString (shouldCompileEntryFile ui)) to:ss
         format "  \"icon\": \"%\",\n" (escapeJson iconPath) to:ss
         format "  \"license\": \"%\",\n" (escapeJson (getDropDownText ui.ddlLicense)) to:ss
         format "  \"licenseUrl\": \"%\",\n" (escapeJson (trimString ui.edtLicenseUrl.text)) to:ss
@@ -1458,18 +1482,22 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         format "        macroContent += \"            local packageDir = (getDir #temp) + \" + (maxPkgEntryStringLiteral \"\\\\\") + \" + packageGuid + \" + (maxPkgEntryStringLiteral \"\\\\\") + \"\\n\"\n" to:ss
         format "        macroContent += \"            local manifestIni = packageDir + \" + (maxPkgEntryStringLiteral \"manifest.ini\") + \"\\n\"\n" to:ss
         format "        macroContent += \"            if (not (doesFileExist manifestIni)) do throw (\" + (maxPkgEntryStringLiteral \"Package manifest was not found: \") + \" + manifestIni)\\n\"\n" to:ss
-        format "        macroContent += \"            local runtime = getINISetting manifestIni \" + (maxPkgEntryStringLiteral \"package\") + \" \" + (maxPkgEntryStringLiteral \"runtime\") + \"\\n\"\n" to:ss
         format "        macroContent += \"            local entry = getINISetting manifestIni \" + (maxPkgEntryStringLiteral \"package\") + \" \" + (maxPkgEntryStringLiteral \"entry\") + \"\\n\"\n" to:ss
         format "        macroContent += \"            if (entry == undefined or entry == \" + (maxPkgEntryStringLiteral \"\") + \") do throw \" + (maxPkgEntryStringLiteral \"Package entry file is empty.\") + \"\\n\"\n" to:ss
         format "        macroContent += \"            local entryPath = packageDir + entry\\n\"\n" to:ss
+        format "        macroContent += \"            local entryExt = toLower (getFilenameType entryPath)\\n\"\n" to:ss
         format "        macroContent += \"            if (not (doesFileExist entryPath)) do throw (\" + (maxPkgEntryStringLiteral \"Package entry file was not found: \") + \" + entryPath)\\n\"\n" to:ss
-        format "        macroContent += \"            if (runtime == \" + (maxPkgEntryStringLiteral \"python\") + \") then\\n\"\n" to:ss
+        format "        macroContent += \"            if (entryExt == \" + (maxPkgEntryStringLiteral \".py\") + \") then\\n\"\n" to:ss
         format "        macroContent += \"            (\\n\"\n" to:ss
         format "        macroContent += \"                python.ExecuteFile entryPath\\n\"\n" to:ss
         format "        macroContent += \"            )\\n\"\n" to:ss
-        format "        macroContent += \"            else\\n\"\n" to:ss
+        format "        macroContent += \"            else if (entryExt == \" + (maxPkgEntryStringLiteral \".ms\") + \" or entryExt == \" + (maxPkgEntryStringLiteral \".mse\") + \") then\\n\"\n" to:ss
         format "        macroContent += \"            (\\n\"\n" to:ss
         format "        macroContent += \"                fileIn entryPath\\n\"\n" to:ss
+        format "        macroContent += \"            )\\n\"\n" to:ss
+        format "        macroContent += \"            else\\n\"\n" to:ss
+        format "        macroContent += \"            (\\n\"\n" to:ss
+        format "        macroContent += \"                throw (\" + (maxPkgEntryStringLiteral \"Unsupported package entry file type: \") + \" + entryExt)\\n\"\n" to:ss
         format "        macroContent += \"            )\\n\"\n" to:ss
         format "        macroContent += \"        )\\n\"\n" to:ss
         format "        macroContent += \"        catch\\n\"\n" to:ss
@@ -1521,6 +1549,11 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         format "    ) else (\n" to:ss
         format "        maxPkgEntryInstallMacroButton entryFolder packageGuid\n" to:ss
         format "        maxPkgEntryRunOptionalScript (entryFolder + \"install.ms\")\n" to:ss
+        format "        try (\n" to:ss
+        format "            if (MaxPkg != undefined) do (\n" to:ss
+        format "                MaxPkg.rebuildToolbar()\n" to:ss
+        format "            )\n" to:ss
+        format "        ) catch()\n" to:ss
         format "    )\n" to:ss
         format ")\n" to:ss
 
@@ -1531,6 +1564,28 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         ensureDirectory (getFilenamePath targetPath)
         copyFile absPath targetPath
         return true
+    )
+
+    fn compilePackageEntryFile sourceFilePath stagingSourceFilePath = (
+        local targetFilePath = compiledEntryPath stagingSourceFilePath
+
+        ensureDirectory (getFilenamePath stagingSourceFilePath)
+
+        try (
+            if (doesFileExist stagingSourceFilePath) do deleteFile stagingSourceFilePath
+            if (doesFileExist targetFilePath) do deleteFile targetFilePath
+            copyFile sourceFilePath stagingSourceFilePath
+            encryptScript stagingSourceFilePath
+            deleteFile stagingSourceFilePath
+
+            if (doesFileExist targetFilePath) do return true
+
+            addLog "ERROR" ("Compiled entry was not created: " + targetFilePath)
+            return false
+        ) catch (
+            addLog "ERROR" ("Could not compile entry file: " + getCurrentException())
+            return false
+        )
     )
 
     fn createMzpFromFolder sourceFolder outputFile = (
@@ -1565,6 +1620,8 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         local outputFolder = ensureTrailingSlash ui.edtOutput.text
         local buildRoot = ensureTrailingSlash ((getDir #temp) + "\\maxpkg-packager-build-" + guid)
         local outputFile = outputFolder + guid + ".mzp"
+        local sourceEntryPath = normalizePath (trimString ui.edtEntry.text)
+        local shouldCompileEntry = shouldCompileEntryFile ui
         local isPackageBuilt = false
 
         try (
@@ -1584,7 +1641,13 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
             )
 
             for item in packageFiles do (
-                copyPackageFile item[1] (buildRoot + item[2])
+                local packageRelPath = normalizePath item[2]
+
+                if (shouldCompileEntry and (lowerString packageRelPath) == (lowerString sourceEntryPath)) then (
+                    compilePackageEntryFile item[1] (buildRoot + sourceEntryPath)
+                ) else (
+                    copyPackageFile item[1] (buildRoot + packageRelPath)
+                )
             )
 
             addLog "OK" ((packageFiles.count as string) + " files copied")
@@ -1741,12 +1804,11 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
 
 		)
 
-		group "Runtime" (
-			label lblRuntime "Launch" align: #left across: 5 offset: [0, 4]
-			dropdownList ddlRuntime "" width:120 items:#("maxscript", "python") selection:1 align: #left offset: [-37, 0]
-			label lblEntry "Entry File" align: #left offset: [34, 4]
-			editText edtEntry ""width: 250 align: #right offset: [53, 3]
-			button btnEntryFromSelected "Use Selected" width: 80 align: #right	
+		group "Entry" (
+			label lblEntry "Entry File" align: #left across: 4 offset: [0, 4]
+			editText edtEntry "" width: 235 align: #left offset: [-75, 3]
+			button btnEntryFromSelected "Use Selected" width: 80 align: #left offset: [-3, 0]
+			checkbox chkCompileEntry "Compile entry file .ms to .mse" checked:false enabled:false align:#left offset:[-25, 4]
 		)
 
         group "Changelog" (
@@ -1793,6 +1855,29 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
             return true
         )
 
+        fn syncCompileEntryState = (
+            local canCompile = canCompileEntryFile MaxPkgPackagerRollout
+
+            chkCompileEntry.enabled = canCompile
+            if (not canCompile) do chkCompileEntry.checked = false
+
+            return true
+        )
+
+        fn syncEntryFileWithPackageList = (
+            local currentEntryPath = normalizePath (trimString edtEntry.text)
+
+            if (currentEntryPath == "") do return true
+
+            if ((findPackageFileByRel currentEntryPath) == undefined) do (
+                edtEntry.text = ""
+                syncCompileEntryState()
+                return false
+            )
+
+            return true
+        )
+
         fn autoSaveSettings = (
             saveSettings MaxPkgPackagerRollout
             return true
@@ -1829,6 +1914,7 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
             )
 
             syncVersionState()
+            syncCompileEntryState()
             activeChangelogVersion = buildVersionString MaxPkgPackagerRollout
             if (not (loadChangelogForVersion activeChangelogVersion)) do (
                 changelogItems = #()
@@ -1836,6 +1922,7 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
             )
 
             refreshFiles()
+            if (not (syncEntryFileWithPackageList())) do saveSettings MaxPkgPackagerRollout
             refreshChangelog()
             refreshLog()
         )
@@ -1853,14 +1940,17 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         on ddlReleaseChannel selected selectedIndex do autoSaveSettings()
         on edtReleaseDate changed fieldText do autoSaveSettings()
         on ddlMinMax selected selectedIndex do autoSaveSettings()
-        on ddlRuntime selected selectedIndex do autoSaveSettings()
-        on edtEntry changed fieldText do autoSaveSettings()
+        on edtEntry changed fieldText do (
+            syncCompileEntryState()
+            autoSaveSettings()
+        )
         on edtIcon changed fieldText do autoSaveSettings()
         on edtHomepage changed fieldText do autoSaveSettings()
         on edtDocumentation changed fieldText do autoSaveSettings()
         on edtSupport changed fieldText do autoSaveSettings()
         on chkCreateMacro changed isChecked do autoSaveSettings()
         on chkShowToolbar changed isChecked do autoSaveSettings()
+        on chkCompileEntry changed isChecked do autoSaveSettings()
         on edtOutput changed fieldText do autoSaveSettings()
 
         on btnGuidGenerate pressed do (
@@ -1897,6 +1987,7 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         on btnEntryFromSelected pressed do (
             if (lbFiles.selection > 0) do (
                 edtEntry.text = lbFiles.items[lbFiles.selection]
+                syncCompileEntryState()
                 autoSaveSettings()
             )
         )
@@ -1973,6 +2064,7 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
 
             local added = addFolderFiles rootDir
             addLog "OK" ((added as string) + " files scanned from product folder")
+            syncEntryFileWithPackageList()
             refreshFiles()
             autoSaveSettings()
         )
@@ -1999,6 +2091,7 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
 
                 if (shouldRemoveFile) do (
                     deleteItem packageFiles selectedIndex
+                    syncEntryFileWithPackageList()
                     refreshFiles()
                     autoSaveSettings()
                 )
