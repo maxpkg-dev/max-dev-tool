@@ -38,6 +38,18 @@ if (isUploaded) then (
 )
 ```
 
+## Named Arguments
+
+- For MaxScript named arguments, UI control parameters, rollout options, and function keyword arguments, write exactly one space after `:` and no space before it.
+- Use `key: value`, not `key:value`, `key :value`, or `key : value`.
+
+Example:
+
+```maxscript
+dotNetControl dncTabs "System.Windows.Forms.TabControl" width: 260 height: 20 align: #left across: 2 offset: [-10, 0]
+local versionParts = parseVersionParts (settingsGetEscaped "version" defaultContent: "1.0.0")
+```
+
 ## Strings
 
 - Never use `format` for string concatenation.

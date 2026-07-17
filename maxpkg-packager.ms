@@ -6,12 +6,16 @@ AUTHOR=Vasyl Lukianenko
 DEV=https://3dground.net
 SITE=https://maxpkg.dev
 HELP=https://maxpkg.dev
-UPDATE=https://raw.githubusercontent.com/maxpkg-dev/max-dev-tool/main/maxpkg-packer-new-ui.ms
+UPDATE=https://raw.githubusercontent.com/maxpkg-dev/max-dev-tool/main/maxpkg-packager.ms
 MANIFEST_VERSION=1
 
 [ABOUT]
-Compact MaxPkg package builder interface.=
-Builds MaxPkg-compatible MZP packages from a project folder.=
+Drag this script into a 3ds Max viewport from a developer productfolder.=
+It builds a universal MaxPkg-compatible .mzp package. =
+The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
+
+[1.0.0]
+* Initial release =
 
 [1.0.1]
 * Compact UI functional wiring=
@@ -60,7 +64,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
     if (scriptFilePath == undefined or scriptFilePath == "") do scriptFilePath = getThisScriptFileName()
     scriptDir = getFilenamePath scriptFilePath
     if (scriptDir == undefined or scriptDir == "") do scriptDir = (getDir #scripts) + "\\"
-    iniFilePath = scriptDir + "maxpkg-packer-new-ui.ini"
+    iniFilePath = scriptDir + "maxpkg-packager.ini"
     settingsIniFilePath = scriptDir + "maxpkg-packager.ini"
     changelogIniFilePath = scriptDir + "maxpkg-changelog.ini"
 
@@ -130,7 +134,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         return true
     )
 
-    fn iniGet settingKey defaultContent:"" = (
+    fn iniGet settingKey defaultContent: "" = (
         local settingContent = getINISetting iniFilePath "ui" settingKey
 
         if (settingContent == undefined or settingContent == "") do return defaultContent
@@ -138,10 +142,10 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
     )
 
     fn selectedTabId = (
-        return normalizeTabId (iniGet "lastTab" defaultContent:"info")
+        return normalizeTabId (iniGet "lastTab" defaultContent: "info")
     )
 
-    fn setupTextBoxControl textBoxControl isMultiline:false isReadOnly:false = (
+    fn setupTextBoxControl textBoxControl isMultiline: false isReadOnly: false = (
         local borderStyleClass = dotNetClass "System.Windows.Forms.BorderStyle"
         local scrollBarsClass = dotNetClass "System.Windows.Forms.ScrollBars"
 
@@ -163,7 +167,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         return true
     )
 
-    fn trimString sourceContent tag:" " = (
+    fn trimString sourceContent tag: " " = (
         if (sourceContent == undefined) do return ""
         sourceContent = sourceContent as string
         return trimLeft (trimRight sourceContent tag) tag
@@ -222,7 +226,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         return "false"
     )
 
-    fn stringToBool sourceContent defaultContent:true = (
+    fn stringToBool sourceContent defaultContent: true = (
         local boolContent = lowerString (trimString sourceContent)
 
         if (boolContent == "") do return defaultContent
@@ -296,7 +300,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         local normalizedFolderPath = ensureTrailingSlash folderPath
 
         if (directoryExists normalizedFolderPath) do return true
-        return makeDir normalizedFolderPath all:true
+        return makeDir normalizedFolderPath all: true
     )
 
     fn deleteDirectory folderPath = (
@@ -373,7 +377,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         return yearItems
     )
 
-    fn versionNumberItems m:99 = (
+    fn versionNumberItems m: 99 = (
         local versionItems = #()
 
         for numberItem in 0 to m do (
@@ -410,23 +414,23 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         return majorPart + "." + minorPart + "." + patchPart
     )
 
-    fn settingsSet settingKey settingContent settingsSection:"settings" = (
+    fn settingsSet settingKey settingContent settingsSection: "settings" = (
         setINISetting settingsIniFilePath settingsSection settingKey (trimString settingContent)
         return true
     )
 
-    fn settingsGet settingKey settingsSection:"settings" defaultContent:"" = (
+    fn settingsGet settingKey settingsSection: "settings" defaultContent: "" = (
         local settingContent = getINISetting settingsIniFilePath settingsSection settingKey
 
         if (settingContent == undefined or settingContent == "") do return defaultContent
         return settingContent
     )
 
-    fn settingsGetBool settingKey settingsSection:"settings" defaultContent:true = (
-        return stringToBool (getINISetting settingsIniFilePath settingsSection settingKey) defaultContent:defaultContent
+    fn settingsGetBool settingKey settingsSection: "settings" defaultContent: true = (
+        return stringToBool (getINISetting settingsIniFilePath settingsSection settingKey) defaultContent: defaultContent
     )
 
-    fn settingsGetInt settingKey settingsSection:"settings" defaultContent:0 = (
+    fn settingsGetInt settingKey settingsSection: "settings" defaultContent: 0 = (
         local settingContent = getINISetting settingsIniFilePath settingsSection settingKey
 
         if (settingContent == undefined or settingContent == "") do return defaultContent
@@ -447,12 +451,12 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         return resultContent
     )
 
-    fn settingsSetEscaped settingKey settingContent settingsSection:"settings" = (
+    fn settingsSetEscaped settingKey settingContent settingsSection: "settings" = (
         setINISetting settingsIniFilePath settingsSection settingKey (escapeIniValue settingContent)
         return true
     )
 
-    fn settingsGetEscaped settingKey settingsSection:"settings" defaultContent:"" = (
+    fn settingsGetEscaped settingKey settingsSection: "settings" defaultContent: "" = (
         local settingContent = getINISetting settingsIniFilePath settingsSection settingKey
 
         if (settingContent == undefined or settingContent == "") do return defaultContent
@@ -470,7 +474,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         return resultContent
     )
 
-    fn readScriptInfoEntry infoKey defaultContent:"" = (
+    fn readScriptInfoEntry infoKey defaultContent: "" = (
         local entryContent = try (getINISetting scriptFilePath "INFO" infoKey) catch("")
         if (entryContent == undefined or entryContent == "") do return defaultContent
         return entryContent
@@ -482,13 +486,13 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         return currentScriptFile
     )
 
-    fn scriptInfoEntry sourceScriptFile infoKey defaultContent:"" = (
+    fn scriptInfoEntry sourceScriptFile infoKey defaultContent: "" = (
         local entryContent = try (getINISetting sourceScriptFile "INFO" infoKey) catch("")
         if (entryContent == undefined or entryContent == "") do return defaultContent
         return entryContent
     )
 
-    fn readScriptInfo sourceScriptFile releaseInfo:"" = (
+    fn readScriptInfo sourceScriptFile releaseInfo: "" = (
         if (releaseInfo != "") do (
             local releaseItems = try (getINISetting sourceScriptFile releaseInfo) catch(#())
             return releaseItems
@@ -510,14 +514,14 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         )
 
         local scriptInfo = MaxPkgPackerNewScriptInfoData()
-        scriptInfo.scriptTitle = scriptInfoEntry sourceScriptFile "NAME" defaultContent:"MaxPkg Packer New UI"
-        scriptInfo.versionString = scriptInfoEntry sourceScriptFile "VERSION" defaultContent:"0.0.0"
-        scriptInfo.authorTitle = scriptInfoEntry sourceScriptFile "AUTHOR" defaultContent:""
-        scriptInfo.developerUrl = scriptInfoEntry sourceScriptFile "DEV" defaultContent:""
-        scriptInfo.siteUrl = scriptInfoEntry sourceScriptFile "SITE" defaultContent:""
-        scriptInfo.helpUrl = scriptInfoEntry sourceScriptFile "HELP" defaultContent:""
-        scriptInfo.updateUrl = scriptInfoEntry sourceScriptFile "UPDATE" defaultContent:""
-        scriptInfo.manifestVersion = scriptInfoEntry sourceScriptFile "MANIFEST_VERSION" defaultContent:"1"
+        scriptInfo.scriptTitle = scriptInfoEntry sourceScriptFile "NAME" defaultContent: "MaxPkg Packer New UI"
+        scriptInfo.versionString = scriptInfoEntry sourceScriptFile "VERSION" defaultContent: "0.0.0"
+        scriptInfo.authorTitle = scriptInfoEntry sourceScriptFile "AUTHOR" defaultContent: ""
+        scriptInfo.developerUrl = scriptInfoEntry sourceScriptFile "DEV" defaultContent: ""
+        scriptInfo.siteUrl = scriptInfoEntry sourceScriptFile "SITE" defaultContent: ""
+        scriptInfo.helpUrl = scriptInfoEntry sourceScriptFile "HELP" defaultContent: ""
+        scriptInfo.updateUrl = scriptInfoEntry sourceScriptFile "UPDATE" defaultContent: ""
+        scriptInfo.manifestVersion = scriptInfoEntry sourceScriptFile "MANIFEST_VERSION" defaultContent: "1"
         scriptInfo.descriptionContent = descriptionContent
         scriptInfo.releases = releaseItems
         return scriptInfo
@@ -586,7 +590,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
     )
 
     fn releaseNotesForVersion sourceScriptFile releaseVersionString = (
-        local releaseItems = readScriptInfo sourceScriptFile releaseInfo:releaseVersionString
+        local releaseItems = readScriptInfo sourceScriptFile releaseInfo: releaseVersionString
         local releaseContent = ""
 
         for releaseIndex in 1 to releaseItems.count do (
@@ -628,7 +632,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         return updateResult
     )
 
-    fn checkAndDownloadScriptUpdate showMessages:false reloadAfterUpdate:false = (
+    fn checkAndDownloadScriptUpdate showMessages: false reloadAfterUpdate: false = (
         local updateResult = newUpdateResultData()
         local currentScriptFile = currentScriptFilePath()
         updateResult.scriptFilePath = currentScriptFile
@@ -638,14 +642,14 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         updateResult.currentVersionString = currentInfo.versionString
 
         if (currentInfo.updateUrl == "") do (
-            if (showMessages) do messageBox "Update URL is not configured." title:"MaxPkg Packer"
+            if (showMessages) do messageBox "Update URL is not configured." title: "MaxPkg Packer"
             updateResult.messageContent = "Update URL is not configured."
             return updateResult
         )
 
         local downloadedFilePath = currentScriptFile + ".update"
         if (not (downloadUpdateFile currentInfo.updateUrl downloadedFilePath)) do (
-            if (showMessages) do messageBox "Could not download update." title:"MaxPkg Packer"
+            if (showMessages) do messageBox "Could not download update." title: "MaxPkg Packer"
             updateResult.messageContent = "Could not download update."
             return updateResult
         )
@@ -656,7 +660,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
 
         if (compareResult <= 0) do (
             try (deleteFile downloadedFilePath) catch()
-            if (showMessages) do messageBox ("You already have the latest version: " + currentInfo.versionString) title:"MaxPkg Packer"
+            if (showMessages) do messageBox ("You already have the latest version: " + currentInfo.versionString) title: "MaxPkg Packer"
             updateResult.messageContent = "You already have the latest version: " + currentInfo.versionString
             return updateResult
         )
@@ -665,7 +669,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
 
         if (not (applyDownloadedScriptUpdate downloadedFilePath currentScriptFile)) do (
             try (deleteFile downloadedFilePath) catch()
-            if (showMessages) do messageBox "Downloaded update, but could not replace current script." title:"MaxPkg Packer"
+            if (showMessages) do messageBox "Downloaded update, but could not replace current script." title: "MaxPkg Packer"
             updateResult.messageContent = "Downloaded update, but could not replace current script."
             return updateResult
         )
@@ -679,7 +683,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
     )
 
     fn readTextFile filePath = (
-        local fileStream = openFile filePath mode:"rt"
+        local fileStream = openFile filePath mode: "rt"
         local fileContent = ""
 
         if (fileStream == undefined) do return undefined
@@ -697,7 +701,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         local fileStream = createFile filePath
 
         if (fileStream == undefined) do return false
-        format "%" fileContent to:fileStream
+        format "%" fileContent to: fileStream
         close fileStream
         return true
     )
@@ -796,15 +800,13 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
 
         if ((findString lowerFilePath "\\.git\\") != undefined) do return true
         if ((findString lowerFilePath "\\.vscode\\") != undefined) do return true
-        if (matchPattern lowerFileName pattern:"*.bak" ignoreCase:true) do return true
-        if (matchPattern lowerFileName pattern:"*.tmp" ignoreCase:true) do return true
-        if (matchPattern lowerFileName pattern:"*.log" ignoreCase:true) do return true
-        if (matchPattern lowerFileName pattern:"*.zip" ignoreCase:true) do return true
-        if (matchPattern lowerFileName pattern:"*.mzp" ignoreCase:true) do return true
+        if (matchPattern lowerFileName pattern: "*.bak" ignoreCase: true) do return true
+        if (matchPattern lowerFileName pattern: "*.tmp" ignoreCase: true) do return true
+        if (matchPattern lowerFileName pattern: "*.log" ignoreCase: true) do return true
+        if (matchPattern lowerFileName pattern: "*.zip" ignoreCase: true) do return true
+        if (matchPattern lowerFileName pattern: "*.mzp" ignoreCase: true) do return true
         if (lowerFileName == "maxpkg-packager.ms") do return true
-        if (lowerFileName == "maxpkg-packer-new-ui.ms") do return true
         if (lowerFileName == "maxpkg-packager.ini") do return true
-        if (lowerFileName == "maxpkg-packer-new-ui.ini") do return true
         if (lowerFileName == "maxpkg-changelog.ini") do return true
         if (lowerFileName == "maxpkg-button.mcr") do return true
         if (lowerFileName == "mzp.run") do return true
@@ -1330,8 +1332,8 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
 
         setINISetting settingsIniFilePath "files" "count" (packageFiles.count as string)
         for fileIndex in 1 to packageFiles.count do (
-            settingsSetEscaped ((fileIndex as string) + "_abs") packageFiles[fileIndex][1] settingsSection:"files"
-            settingsSetEscaped ((fileIndex as string) + "_rel") packageFiles[fileIndex][2] settingsSection:"files"
+            settingsSetEscaped ((fileIndex as string) + "_abs") packageFiles[fileIndex][1] settingsSection: "files"
+            settingsSetEscaped ((fileIndex as string) + "_rel") packageFiles[fileIndex][2] settingsSection: "files"
         )
 
         saveCurrentChangelog()
@@ -1357,26 +1359,26 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
             packageState.documentationUrl = settingsGetEscaped "documentation"
             packageState.homepageUrl = settingsGetEscaped "homepage"
             packageState.supportUrl = settingsGetEscaped "support"
-            packageState.createButton = settingsGetBool "createMacroButton" defaultContent:true
-            packageState.showToolbar = settingsGetBool "showInToolbar" defaultContent:true
-            packageState.outputFolder = settingsGetEscaped "outputFolder" defaultContent:(scriptDir + "dist")
+            packageState.createButton = settingsGetBool "createMacroButton" defaultContent: true
+            packageState.showToolbar = settingsGetBool "showInToolbar" defaultContent: true
+            packageState.outputFolder = settingsGetEscaped "outputFolder" defaultContent: (scriptDir + "dist")
             packageState.svgIconFile = settingsGetEscaped "svgIcon"
             packageState.entryFile = settingsGetEscaped "entry"
-            packageState.compileEntry = settingsGetBool "compileEntry" defaultContent:true
-            packageState.releaseChannel = settingsGetEscaped "releaseChannel" defaultContent:"stable"
-            packageState.releaseDate = settingsGetEscaped "releaseDate" defaultContent:(currentDateString())
-            packageState.minMaxVersion = settingsGetEscaped "min3dsMax" defaultContent:"2012"
+            packageState.compileEntry = settingsGetBool "compileEntry" defaultContent: true
+            packageState.releaseChannel = settingsGetEscaped "releaseChannel" defaultContent: "stable"
+            packageState.releaseDate = settingsGetEscaped "releaseDate" defaultContent: (currentDateString())
+            packageState.minMaxVersion = settingsGetEscaped "min3dsMax" defaultContent: "2012"
 
-            local versionParts = parseVersionParts (settingsGetEscaped "version" defaultContent:"1.0.0")
+            local versionParts = parseVersionParts (settingsGetEscaped "version" defaultContent: "1.0.0")
             packageState.versionMajor = versionParts[1]
             packageState.versionMinor = versionParts[2]
             packageState.versionPatch = versionParts[3]
 
             packageFiles = #()
-            local fileCount = settingsGetInt "count" settingsSection:"files" defaultContent:0
+            local fileCount = settingsGetInt "count" settingsSection: "files" defaultContent: 0
             for fileIndex in 1 to fileCount do (
-                local absFilePath = settingsGetEscaped ((fileIndex as string) + "_abs") settingsSection:"files"
-                local relativeFilePath = settingsGetEscaped ((fileIndex as string) + "_rel") settingsSection:"files"
+                local absFilePath = settingsGetEscaped ((fileIndex as string) + "_abs") settingsSection: "files"
+                local relativeFilePath = settingsGetEscaped ((fileIndex as string) + "_rel") settingsSection: "files"
 
                 if (absFilePath != "" and relativeFilePath != "" and not (isExcludedPath absFilePath)) do (
                     append packageFiles #((normalizePath absFilePath), (normalizePath relativeFilePath))
@@ -1517,43 +1519,43 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
     fn buildManifestIni = (
         local stringStreamContent = stringStream ""
         local iconPathContent = ""
-        local manifestVersion = readScriptInfoEntry "MANIFEST_VERSION" defaultContent:"1"
-        local packagerTitle = readScriptInfoEntry "NAME" defaultContent:"MaxPkg Packer"
-        local packagerVersion = readScriptInfoEntry "VERSION" defaultContent:"0.1.0"
+        local manifestVersion = readScriptInfoEntry "MANIFEST_VERSION" defaultContent: "1"
+        local packagerTitle = readScriptInfoEntry "NAME" defaultContent: "MaxPkg Packer"
+        local packagerVersion = readScriptInfoEntry "VERSION" defaultContent: "0.1.0"
 
         if ((trimString packageState.svgIconFile) != "") do iconPathContent = "icons/icon.svg"
 
-        format "[package]\n" to:stringStreamContent
-        format "%" (iniLine "manifestVersion" manifestVersion) to:stringStreamContent
-        format "%" (iniLine "packageGuid" packageState.packageGuid) to:stringStreamContent
-        format "%" (iniLine "name" packageState.packageTitle) to:stringStreamContent
-        format "%" (iniLine "buttonName" packageState.buttonTitle) to:stringStreamContent
-        format "%" (iniLine "description" packageState.descriptionContent) to:stringStreamContent
-        format "%" (iniLine "version" (buildVersionStringFromState())) to:stringStreamContent
-        format "%" (iniLine "releaseChannel" packageState.releaseChannel) to:stringStreamContent
-        format "%" (iniLine "releaseDate" packageState.releaseDate) to:stringStreamContent
-        format "%" (iniLine "entry" (manifestEntryPathFromState())) to:stringStreamContent
-        format "%" (iniLine "compileEntry" (boolToString (shouldCompileEntryFileFromState()))) to:stringStreamContent
-        format "%" (iniLine "icon" iconPathContent) to:stringStreamContent
-        format "%" (iniLine "license" packageState.licenseType) to:stringStreamContent
-        format "%" (iniLine "licenseUrl" packageState.licenseUrl) to:stringStreamContent
-        format "%" (iniLine "developerName" packageState.developerTitle) to:stringStreamContent
-        format "%" (iniLine "min3dsMax" packageState.minMaxVersion) to:stringStreamContent
-        format "%" (iniLine "max3dsMax" ((currentMaxYearPlusOne()) as string)) to:stringStreamContent
-        format "%" (iniLine "homepage" packageState.homepageUrl) to:stringStreamContent
-        format "%" (iniLine "documentation" packageState.documentationUrl) to:stringStreamContent
-        format "%" (iniLine "support" packageState.supportUrl) to:stringStreamContent
-        format "%" (iniLine "createMacroButton" (boolToString packageState.createButton)) to:stringStreamContent
-        format "%" (iniLine "showInToolbar" (boolToString packageState.showToolbar)) to:stringStreamContent
-        format "%" (iniLine "installScript" (detectRootHook "install.ms")) to:stringStreamContent
-        format "%" (iniLine "uninstallScript" (detectRootHook "uninstall.ms")) to:stringStreamContent
-        format "%" (iniLine "packager" packagerTitle) to:stringStreamContent
-        format "%" (iniLine "packagerVersion" packagerVersion) to:stringStreamContent
-        format "\n[changelog]\n" to:stringStreamContent
+        format "[package]\n" to: stringStreamContent
+        format "%" (iniLine "manifestVersion" manifestVersion) to: stringStreamContent
+        format "%" (iniLine "packageGuid" packageState.packageGuid) to: stringStreamContent
+        format "%" (iniLine "name" packageState.packageTitle) to: stringStreamContent
+        format "%" (iniLine "buttonName" packageState.buttonTitle) to: stringStreamContent
+        format "%" (iniLine "description" packageState.descriptionContent) to: stringStreamContent
+        format "%" (iniLine "version" (buildVersionStringFromState())) to: stringStreamContent
+        format "%" (iniLine "releaseChannel" packageState.releaseChannel) to: stringStreamContent
+        format "%" (iniLine "releaseDate" packageState.releaseDate) to: stringStreamContent
+        format "%" (iniLine "entry" (manifestEntryPathFromState())) to: stringStreamContent
+        format "%" (iniLine "compileEntry" (boolToString (shouldCompileEntryFileFromState()))) to: stringStreamContent
+        format "%" (iniLine "icon" iconPathContent) to: stringStreamContent
+        format "%" (iniLine "license" packageState.licenseType) to: stringStreamContent
+        format "%" (iniLine "licenseUrl" packageState.licenseUrl) to: stringStreamContent
+        format "%" (iniLine "developerName" packageState.developerTitle) to: stringStreamContent
+        format "%" (iniLine "min3dsMax" packageState.minMaxVersion) to: stringStreamContent
+        format "%" (iniLine "max3dsMax" ((currentMaxYearPlusOne()) as string)) to: stringStreamContent
+        format "%" (iniLine "homepage" packageState.homepageUrl) to: stringStreamContent
+        format "%" (iniLine "documentation" packageState.documentationUrl) to: stringStreamContent
+        format "%" (iniLine "support" packageState.supportUrl) to: stringStreamContent
+        format "%" (iniLine "createMacroButton" (boolToString packageState.createButton)) to: stringStreamContent
+        format "%" (iniLine "showInToolbar" (boolToString packageState.showToolbar)) to: stringStreamContent
+        format "%" (iniLine "installScript" (detectRootHook "install.ms")) to: stringStreamContent
+        format "%" (iniLine "uninstallScript" (detectRootHook "uninstall.ms")) to: stringStreamContent
+        format "%" (iniLine "packager" packagerTitle) to: stringStreamContent
+        format "%" (iniLine "packagerVersion" packagerVersion) to: stringStreamContent
+        format "\n[changelog]\n" to: stringStreamContent
 
         for changelogIndex in 1 to changelogItems.count do (
-            format "%" (iniLine ((changelogIndex as string) + "_type") changelogItems[changelogIndex][1]) to:stringStreamContent
-            format "%" (iniLine ((changelogIndex as string) + "_text") changelogItems[changelogIndex][2]) to:stringStreamContent
+            format "%" (iniLine ((changelogIndex as string) + "_type") changelogItems[changelogIndex][1]) to: stringStreamContent
+            format "%" (iniLine ((changelogIndex as string) + "_text") changelogItems[changelogIndex][2]) to: stringStreamContent
         )
 
         return stringStreamContent as string
@@ -1562,50 +1564,50 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
     fn buildManifestJson = (
         local stringStreamContent = stringStream ""
         local iconPathContent = ""
-        local manifestVersion = readScriptInfoEntry "MANIFEST_VERSION" defaultContent:"1"
-        local packagerTitle = readScriptInfoEntry "NAME" defaultContent:"MaxPkg Packer"
-        local packagerVersion = readScriptInfoEntry "VERSION" defaultContent:"0.1.0"
+        local manifestVersion = readScriptInfoEntry "MANIFEST_VERSION" defaultContent: "1"
+        local packagerTitle = readScriptInfoEntry "NAME" defaultContent: "MaxPkg Packer"
+        local packagerVersion = readScriptInfoEntry "VERSION" defaultContent: "0.1.0"
         local minMax = try (packageState.minMaxVersion as integer) catch(2012)
         local maxMax = currentMaxYearPlusOne()
 
         if ((trimString packageState.svgIconFile) != "") do iconPathContent = "icons/icon.svg"
 
-        format "{\n" to:stringStreamContent
-        format "  \"manifestVersion\": \"%\",\n" (escapeJson manifestVersion) to:stringStreamContent
-        format "  \"packageGuid\": \"%\",\n" (escapeJson (trimString packageState.packageGuid)) to:stringStreamContent
-        format "  \"name\": \"%\",\n" (escapeJson (trimString packageState.packageTitle)) to:stringStreamContent
-        format "  \"buttonName\": \"%\",\n" (escapeJson (trimString packageState.buttonTitle)) to:stringStreamContent
-        format "  \"description\": \"%\",\n" (escapeJson (trimString packageState.descriptionContent)) to:stringStreamContent
-        format "  \"version\": \"%\",\n" (escapeJson (buildVersionStringFromState())) to:stringStreamContent
-        format "  \"releaseChannel\": \"%\",\n" (escapeJson packageState.releaseChannel) to:stringStreamContent
-        format "  \"releaseDate\": \"%\",\n" (escapeJson (trimString packageState.releaseDate)) to:stringStreamContent
-        format "  \"entry\": \"%\",\n" (escapeJson (manifestEntryPathFromState())) to:stringStreamContent
-        format "  \"compileEntry\": %, \n" (boolToString (shouldCompileEntryFileFromState())) to:stringStreamContent
-        format "  \"icon\": \"%\",\n" (escapeJson iconPathContent) to:stringStreamContent
-        format "  \"license\": \"%\",\n" (escapeJson packageState.licenseType) to:stringStreamContent
-        format "  \"licenseUrl\": \"%\",\n" (escapeJson (trimString packageState.licenseUrl)) to:stringStreamContent
-        format "  \"developerName\": \"%\",\n" (escapeJson (trimString packageState.developerTitle)) to:stringStreamContent
-        format "  \"min3dsMax\": %, \n" minMax to:stringStreamContent
-        format "  \"max3dsMax\": %, \n" maxMax to:stringStreamContent
-        format "  \"homepage\": \"%\",\n" (escapeJson (trimString packageState.homepageUrl)) to:stringStreamContent
-        format "  \"documentation\": \"%\",\n" (escapeJson (trimString packageState.documentationUrl)) to:stringStreamContent
-        format "  \"support\": \"%\",\n" (escapeJson (trimString packageState.supportUrl)) to:stringStreamContent
-        format "  \"createMacroButton\": %, \n" (boolToString packageState.createButton) to:stringStreamContent
-        format "  \"showInToolbar\": %, \n" (boolToString packageState.showToolbar) to:stringStreamContent
-        format "  \"installScript\": \"%\",\n" (escapeJson (detectRootHook "install.ms")) to:stringStreamContent
-        format "  \"uninstallScript\": \"%\",\n" (escapeJson (detectRootHook "uninstall.ms")) to:stringStreamContent
-        format "  \"packager\": \"%\",\n" (escapeJson packagerTitle) to:stringStreamContent
-        format "  \"packagerVersion\": \"%\",\n" (escapeJson packagerVersion) to:stringStreamContent
-        format "  \"changelog\": [\n" to:stringStreamContent
+        format "{\n" to: stringStreamContent
+        format "  \"manifestVersion\": \"%\",\n" (escapeJson manifestVersion) to: stringStreamContent
+        format "  \"packageGuid\": \"%\",\n" (escapeJson (trimString packageState.packageGuid)) to: stringStreamContent
+        format "  \"name\": \"%\",\n" (escapeJson (trimString packageState.packageTitle)) to: stringStreamContent
+        format "  \"buttonName\": \"%\",\n" (escapeJson (trimString packageState.buttonTitle)) to: stringStreamContent
+        format "  \"description\": \"%\",\n" (escapeJson (trimString packageState.descriptionContent)) to: stringStreamContent
+        format "  \"version\": \"%\",\n" (escapeJson (buildVersionStringFromState())) to: stringStreamContent
+        format "  \"releaseChannel\": \"%\",\n" (escapeJson packageState.releaseChannel) to: stringStreamContent
+        format "  \"releaseDate\": \"%\",\n" (escapeJson (trimString packageState.releaseDate)) to: stringStreamContent
+        format "  \"entry\": \"%\",\n" (escapeJson (manifestEntryPathFromState())) to: stringStreamContent
+        format "  \"compileEntry\": %, \n" (boolToString (shouldCompileEntryFileFromState())) to: stringStreamContent
+        format "  \"icon\": \"%\",\n" (escapeJson iconPathContent) to: stringStreamContent
+        format "  \"license\": \"%\",\n" (escapeJson packageState.licenseType) to: stringStreamContent
+        format "  \"licenseUrl\": \"%\",\n" (escapeJson (trimString packageState.licenseUrl)) to: stringStreamContent
+        format "  \"developerName\": \"%\",\n" (escapeJson (trimString packageState.developerTitle)) to: stringStreamContent
+        format "  \"min3dsMax\": %, \n" minMax to: stringStreamContent
+        format "  \"max3dsMax\": %, \n" maxMax to: stringStreamContent
+        format "  \"homepage\": \"%\",\n" (escapeJson (trimString packageState.homepageUrl)) to: stringStreamContent
+        format "  \"documentation\": \"%\",\n" (escapeJson (trimString packageState.documentationUrl)) to: stringStreamContent
+        format "  \"support\": \"%\",\n" (escapeJson (trimString packageState.supportUrl)) to: stringStreamContent
+        format "  \"createMacroButton\": %, \n" (boolToString packageState.createButton) to: stringStreamContent
+        format "  \"showInToolbar\": %, \n" (boolToString packageState.showToolbar) to: stringStreamContent
+        format "  \"installScript\": \"%\",\n" (escapeJson (detectRootHook "install.ms")) to: stringStreamContent
+        format "  \"uninstallScript\": \"%\",\n" (escapeJson (detectRootHook "uninstall.ms")) to: stringStreamContent
+        format "  \"packager\": \"%\",\n" (escapeJson packagerTitle) to: stringStreamContent
+        format "  \"packagerVersion\": \"%\",\n" (escapeJson packagerVersion) to: stringStreamContent
+        format "  \"changelog\": [\n" to: stringStreamContent
 
         for changelogIndex in 1 to changelogItems.count do (
-            format "    { \"type\": \"%\", \"text\": \"%\" }" (escapeJson changelogItems[changelogIndex][1]) (escapeJson changelogItems[changelogIndex][2]) to:stringStreamContent
-            if (changelogIndex < changelogItems.count) do format "," to:stringStreamContent
-            format "\n" to:stringStreamContent
+            format "    { \"type\": \"%\", \"text\": \"%\" }" (escapeJson changelogItems[changelogIndex][1]) (escapeJson changelogItems[changelogIndex][2]) to: stringStreamContent
+            if (changelogIndex < changelogItems.count) do format "," to: stringStreamContent
+            format "\n" to: stringStreamContent
         )
 
-        format "  ]\n" to:stringStreamContent
-        format "}\n" to:stringStreamContent
+        format "  ]\n" to: stringStreamContent
+        format "}\n" to: stringStreamContent
         return stringStreamContent as string
     )
 
@@ -1672,7 +1674,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         scriptContent += "        try (\n"
         scriptContent += "            fileStream = createFile targetFilePath\n"
         scriptContent += "            if (fileStream == undefined) do return false\n"
-        scriptContent += "            format \"%\" fileContent to:fileStream\n"
+        scriptContent += "            format \"%\" fileContent to: fileStream\n"
         scriptContent += "            close fileStream\n"
         scriptContent += "            return true\n"
         scriptContent += "        ) catch (\n"
@@ -1692,7 +1694,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         scriptContent += "            copyFile sourceIconFile targetIconFile\n"
         scriptContent += "            return true\n"
         scriptContent += "        ) catch (\n"
-        scriptContent += "            messageBox (\"Could not install package icon:\\n\" + targetIconFile + \"\\n\\n\" + getCurrentException()) title:\"MaxPkg\"\n"
+        scriptContent += "            messageBox (\"Could not install package icon:\\n\" + targetIconFile + \"\\n\\n\" + getCurrentException()) title: \"MaxPkg\"\n"
         scriptContent += "            return false\n"
         scriptContent += "        )\n"
         scriptContent += "    )\n\n"
@@ -1704,10 +1706,10 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         scriptContent += "        local macroContent = \"\"\n"
         scriptContent += "        if (packageButtonText == undefined or packageButtonText == \"\") do packageButtonText = packageGuid\n"
         scriptContent += "        macroContent += \"macroScript \" + (maxPkgEntryMacroNameFromGuid packageGuid) + \"\\n\"\n"
-        scriptContent += "        macroContent += \"category:\\\"MaxPkg\\\"\\n\"\n"
-        scriptContent += "        macroContent += \"buttonText:\" + (maxPkgEntryStringLiteral packageButtonText) + \"\\n\"\n"
-        scriptContent += "        macroContent += \"tooltip:\" + (maxPkgEntryStringLiteral (\"Run \" + packageButtonText)) + \"\\n\"\n"
-        scriptContent += "        if (packageIcon != undefined and packageIcon != \"\") do macroContent += \"iconName:\" + (maxPkgEntryForwardPathLiteral macroIconFilePath) + \"\\n\"\n"
+        scriptContent += "        macroContent += \"category: \\\"MaxPkg\\\"\\n\"\n"
+        scriptContent += "        macroContent += \"buttonText: \" + (maxPkgEntryStringLiteral packageButtonText) + \"\\n\"\n"
+        scriptContent += "        macroContent += \"tooltip: \" + (maxPkgEntryStringLiteral (\"Run \" + packageButtonText)) + \"\\n\"\n"
+        scriptContent += "        if (packageIcon != undefined and packageIcon != \"\") do macroContent += \"iconName: \" + (maxPkgEntryForwardPathLiteral macroIconFilePath) + \"\\n\"\n"
         scriptContent += "        macroContent += \"(\\n\"\n"
         scriptContent += "        macroContent += \"    on execute do\\n\"\n"
         scriptContent += "        macroContent += \"    (\\n\"\n"
@@ -1729,7 +1731,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         scriptContent += "        macroContent += \"        )\\n\"\n"
         scriptContent += "        macroContent += \"        catch\\n\"\n"
         scriptContent += "        macroContent += \"        (\\n\"\n"
-        scriptContent += "        macroContent += \"            messageBox (\" + (maxPkgEntryStringLiteral \"Could not run MaxPkg package.\\n\") + \" + getCurrentException()) title:\" + (maxPkgEntryStringLiteral \"MaxPkg\") + \"\\n\"\n"
+        scriptContent += "        macroContent += \"            messageBox (\" + (maxPkgEntryStringLiteral \"Could not run MaxPkg package.\\n\") + \" + getCurrentException()) title: \" + (maxPkgEntryStringLiteral \"MaxPkg\") + \"\\n\"\n"
         scriptContent += "        macroContent += \"        )\\n\"\n"
         scriptContent += "        macroContent += \"    )\\n\"\n"
         scriptContent += "        macroContent += \")\\n\"\n"
@@ -1746,21 +1748,21 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         scriptContent += "        maxPkgEntryInstallIcon entryFolder packageGuid\n"
         scriptContent += "        macroContent = maxPkgEntryBuildMacroScript entryFolder packageGuid\n"
         scriptContent += "        if (not (maxPkgEntryWriteTextFile macroFilePath macroContent)) do (\n"
-        scriptContent += "            messageBox (\"Could not create package macro button:\\n\" + macroFilePath) title:\"MaxPkg\"\n"
+        scriptContent += "            messageBox (\"Could not create package macro button:\\n\" + macroFilePath) title: \"MaxPkg\"\n"
         scriptContent += "            return false\n"
         scriptContent += "        )\n"
-        scriptContent += "        try (fileIn macroFilePath; return true) catch (messageBox (\"Could not load package macro button:\\n\" + macroFilePath + \"\\n\\n\" + getCurrentException()) title:\"MaxPkg\"; return false)\n"
+        scriptContent += "        try (fileIn macroFilePath; return true) catch (messageBox (\"Could not load package macro button:\\n\" + macroFilePath + \"\\n\\n\" + getCurrentException()) title: \"MaxPkg\"; return false)\n"
         scriptContent += "    )\n\n"
         scriptContent += "    fn maxPkgEntryRunOptionalScript scriptFilePath = (\n"
         scriptContent += "        if (scriptFilePath == undefined or scriptFilePath == \"\") do return false\n"
         scriptContent += "        if (not (doesFileExist scriptFilePath)) do return true\n"
-        scriptContent += "        try (fileIn scriptFilePath; return true) catch (messageBox (\"Could not run package script:\\n\" + scriptFilePath + \"\\n\\n\" + getCurrentException()) title:\"MaxPkg\"; return false)\n"
+        scriptContent += "        try (fileIn scriptFilePath; return true) catch (messageBox (\"Could not run package script:\\n\" + scriptFilePath + \"\\n\\n\" + getCurrentException()) title: \"MaxPkg\"; return false)\n"
         scriptContent += "    )\n\n"
         scriptContent += "    local entryFolder = maxPkgEntryEnsureSlash (getFilenamePath (getSourceFileName()))\n"
         scriptContent += "    local manifestFilePath = entryFolder + \"manifest.ini\"\n"
         scriptContent += "    local packageGuid = getINISetting manifestFilePath \"package\" \"packageGuid\"\n"
         scriptContent += "    if (packageGuid == undefined or packageGuid == \"\") then (\n"
-        scriptContent += "        messageBox (\"Package GUID was not found in manifest:\\n\" + manifestFilePath) title:\"MaxPkg\"\n"
+        scriptContent += "        messageBox (\"Package GUID was not found in manifest:\\n\" + manifestFilePath) title: \"MaxPkg\"\n"
         scriptContent += "    ) else (\n"
         scriptContent += "        maxPkgEntryInstallMacroButton entryFolder packageGuid\n"
         scriptContent += "        maxPkgEntryRunOptionalScript (entryFolder + \"install.ms\")\n"
@@ -1798,9 +1800,9 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         sampleContent += "    if (changelogContent == \"\") do changelogContent = \"No changelog entries for this version.\"\n"
         sampleContent += "    local infoContent = \"Installed successfully\\r\\n\\r\\nName: \" + packageTitle + \"\\r\\nVersion: \" + packageVersion + \"\\r\\nRelease Date: \" + releaseDate + \"\\r\\n\\r\\nDescription:\\r\\n\" + packageDescription + \"\\r\\n\\r\\nLatest changelog:\\r\\n\" + changelogContent\n"
         sampleContent += "    try (destroyDialog MaxPkgSampleInstallRollout) catch()\n"
-        sampleContent += "    rollout MaxPkgSampleInstallRollout \"Install Complete\" width:450 height:350 (\n"
-        sampleContent += "        dotNetControl dncInstallInfo \"System.Windows.Forms.TextBox\" height:260 align:#left\n"
-        sampleContent += "        button btnCloseInstallInfo \"Close\" width:80 height:24 align:#right offset:[0, 4]\n"
+        sampleContent += "    rollout MaxPkgSampleInstallRollout \"Install Complete\" width: 450 height: 350 (\n"
+        sampleContent += "        dotNetControl dncInstallInfo \"System.Windows.Forms.TextBox\" height: 260 align: #left\n"
+        sampleContent += "        button btnCloseInstallInfo \"Close\" width: 80 height: 24 align: #right offset: [0, 4]\n"
         sampleContent += "        on MaxPkgSampleInstallRollout open do (\n"
         sampleContent += "            local scrollBarsClass = dotNetClass \"System.Windows.Forms.ScrollBars\"\n"
         sampleContent += "            dncInstallInfo.Multiline = true\n"
@@ -1811,7 +1813,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         sampleContent += "        )\n"
         sampleContent += "        on btnCloseInstallInfo pressed do destroyDialog MaxPkgSampleInstallRollout\n"
         sampleContent += "    )\n"
-        sampleContent += "    createDialog MaxPkgSampleInstallRollout width:450 height:350 modal:false style:#(#style_titlebar, #style_sysmenu, #style_toolwindow)\n"
+        sampleContent += "    createDialog MaxPkgSampleInstallRollout width: 450 height: 350 modal: false style: #(#style_titlebar, #style_sysmenu, #style_toolwindow)\n"
         sampleContent += ")\n"
         return sampleContent
     )
@@ -1824,7 +1826,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         sampleContent += "    local manifestFilePath = scriptDir + \"manifest.ini\"\n"
         sampleContent += "    local packageTitle = getINISetting manifestFilePath \"package\" \"name\"\n"
         sampleContent += "    if (packageTitle == undefined or packageTitle == \"\") do packageTitle = \"Package\"\n"
-        sampleContent += "    messageBox (packageTitle + \" has been completely removed.\") title:\"Uninstall Complete\"\n"
+        sampleContent += "    messageBox (packageTitle + \" has been completely removed.\") title: \"Uninstall Complete\"\n"
         sampleContent += ")\n"
         return sampleContent
     )
@@ -1833,17 +1835,17 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         local sampleFilePath = normalizePath ((ensureTrailingSlash scriptDir) + scriptFileName)
 
         if (doesFileExist sampleFilePath) do (
-            messageBox (scriptFileName + " already exists.") title:"MaxPkg Packer"
+            messageBox (scriptFileName + " already exists.") title: "MaxPkg Packer"
             return false
         )
 
         if (not (writeTextFile sampleFilePath sampleContent)) do (
-            messageBox ("Could not create " + scriptFileName + ".") title:"MaxPkg Packer"
+            messageBox ("Could not create " + scriptFileName + ".") title: "MaxPkg Packer"
             return false
         )
 
         addPackageFile sampleFilePath
-        messageBox (scriptFileName + " created successfully.\n\nLocation:\n" + sampleFilePath) title:"MaxPkg Packer"
+        messageBox (scriptFileName + " created successfully.\n\nLocation:\n" + sampleFilePath) title: "MaxPkg Packer"
         return true
     )
 
@@ -1976,14 +1978,14 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         )
     )
 
-    rollout MaxPkgPackerNewGuidConfirmRollout "Confirm GUID Change" width:360 height:150
+    rollout MaxPkgPackerNewGuidConfirmRollout "Confirm GUID Change" width: 360 height: 150
     (
-        label lblGuidChangeWarning "Changing Package GUID creates a new package identity." align:#left
-        label lblGuidChangeInstruction "Type CHANGE to generate a new GUID." align:#left offset:[0, 15]
-        dotNetControl dncGuidChangePhrase "System.Windows.Forms.TextBox" height:22 align:#left
+        label lblGuidChangeWarning "Changing Package GUID creates a new package identity." align: #left
+        label lblGuidChangeInstruction "Type CHANGE to generate a new GUID." align: #left offset: [0, 15]
+        dotNetControl dncGuidChangePhrase "System.Windows.Forms.TextBox" height: 22 align: #left
 
-        button btnConfirmGuidChange "OK" width:80 height:23 enabled:false align:#left across:2 offset:[0, 15]
-        button btnCancelGuidChange "Cancel" width:80 height:23 align:#right offset:[0, 15]
+        button btnConfirmGuidChange "OK" width: 80 height: 23 enabled: false align: #left across: 2 offset: [0, 15]
+        button btnCancelGuidChange "Cancel" width: 80 height: 23 align: #right offset: [0, 15]
 
         on MaxPkgPackerNewGuidConfirmRollout open do (
             setupTextBoxControl dncGuidChangePhrase
@@ -2012,17 +2014,17 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
     fn confirmGuidChange = (
         isGuidChangeConfirmed = false
         try (destroyDialog MaxPkgPackerNewGuidConfirmRollout) catch()
-        createDialog MaxPkgPackerNewGuidConfirmRollout width:380 height:128 modal:true
+        createDialog MaxPkgPackerNewGuidConfirmRollout width: 380 height: 128 modal: true
         return isGuidChangeConfirmed
     )
 
-    rollout MaxPkgPackerNewTabsRollout "Tabs" width:380 category:1
+    rollout MaxPkgPackerNewTabsRollout "Tabs" width: 380 category: 1
     (
         local isTabsLoading = false
 
-        dotNetControl dncTabs "System.Windows.Forms.TabControl" width:260 height:20 align:#left across:2 offset:[-10, 0]
-        checkbutton btnValidationStatus "Has Issues" width:95 height: 23 align:#right checked:true highlightColor:(color 125 36 36)
-        timer tmrValidationStatus interval:700 active:false
+        dotNetControl dncTabs "System.Windows.Forms.TabControl" width: 260 height: 30 align: #left across: 2 offset: [-10, 0]
+        checkbutton btnValidationStatus "Has Issues" width: 95 height: 23 align: #right checked: true highlightColor: (color 125 36 36)  offset: [0, 3]
+        timer tmrValidationStatus interval: 700 active: false
 
         fn tabIndexFromId tabId = (
             case (normalizeTabId tabId) of (
@@ -2053,6 +2055,15 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
             return true
         )
 
+        fn setupTabsControl = (
+            local tabSizeModeClass = dotNetClass "System.Windows.Forms.TabSizeMode"
+            local tabItemSize = dotNetObject "System.Drawing.Size" 64 24
+
+            dncTabs.SizeMode = tabSizeModeClass.Fixed
+            dncTabs.ItemSize = tabItemSize
+            return true
+        )
+
         fn selectTabById tabId = (
             local tabIndex = tabIndexFromId tabId
 
@@ -2062,6 +2073,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
 
         on MaxPkgPackerNewTabsRollout open do (
             isTabsLoading = true
+            setupTabsControl()
             dncTabs.TabPages.Clear()
             addTabPage "1. Info" "info"
             addTabPage "2. Setup" "setup"
@@ -2091,7 +2103,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         )
     )
 
-	rollout MaxPkgPackerNewInfoRollout "Info" width:380 category:2
+	rollout MaxPkgPackerNewInfoRollout "Info" width: 380 category: 2
     (
         local guidContextMenu
         local guidCopyMenuItem
@@ -2119,7 +2131,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
                 local shouldPasteGuid = true
 
                 if (currentGuidContent != "" and pastedGuidContent != currentGuidContent) do (
-                    shouldPasteGuid = queryBox ("Replace current Package GUID?\n\nCurrent GUID:\n" + currentGuidContent + "\n\nNew GUID:\n" + pastedGuidContent + "\n\nPackage GUID is important. It is linked to the MaxPkg website and used to verify package archives. If you replace it, existing archives may no longer be accepted.") title:"MaxPkg Packer"
+                    shouldPasteGuid = queryBox ("Replace current Package GUID?\n\nCurrent GUID:\n" + currentGuidContent + "\n\nNew GUID:\n" + pastedGuidContent + "\n\nPackage GUID is important. It is linked to the MaxPkg website and used to verify package archives. If you replace it, existing archives may no longer be accepted.") title: "MaxPkg Packer"
                 )
 
                 if (shouldPasteGuid) do (
@@ -2161,7 +2173,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
 
             if (isSafePackageDisplayText incomingContent) do return incomingContent
 
-            messageBox (fieldLabel + " allows only A-Z, a-z, 0-9, space, hyphen, and underscore.") title:"MaxPkg Packer"
+            messageBox (fieldLabel + " allows only A-Z, a-z, 0-9, space, hyphen, and underscore.") title: "MaxPkg Packer"
             isRevertingSafeContent = true
             textBoxControl.Text = previousContent
             isRevertingSafeContent = false
@@ -2169,47 +2181,47 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         )
 
         group "Important Info" (
-            label lblPackageName "Package Name" align:#left
-            dotNetControl dncPackageName "System.Windows.Forms.TextBox" height:22 align:#left
+            label lblPackageName "Package Name" align: #left
+            dotNetControl dncPackageName "System.Windows.Forms.TextBox" height: 22 align: #left
 
-            label lblButtonName "Button Name" align:#left
-            dotNetControl dncButtonName "System.Windows.Forms.TextBox" height:22 align:#left
+            label lblButtonName "Button Name" align: #left
+            dotNetControl dncButtonName "System.Windows.Forms.TextBox" height: 22 align: #left
 
-			label lblDescription "Description" align:#left
-            dotNetControl dncDescription "System.Windows.Forms.TextBox" height:58 align:#left
+			label lblDescription "Description" align: #left
+            dotNetControl dncDescription "System.Windows.Forms.TextBox" height: 58 align: #left
 
-			label lblLicense "License" align:#left
-            dropdownList ddlLicense "" items:#("", "Free","Shareware","Commercial","Open source","Trial") selection:1 align:#left
+			label lblLicense "License" align: #left
+            dropdownList ddlLicense "" items: #("", "Free","Shareware","Commercial","Open source","Trial") selection: 1 align: #left
 		)
 
 		group "GUID" (
-            dotNetControl dncGuid "System.Windows.Forms.TextBox" readOnly: true height:22 align:#left width: 232 across: 2
-            button btnGenerateGuid "Generate" width:120 height:23 align:#right offset:[0, -1]
+            dotNetControl dncGuid "System.Windows.Forms.TextBox" readOnly: true height: 22 align: #left width: 232 across: 2
+            button btnGenerateGuid "Generate" width: 120 height: 23 align: #right offset: [0, -1]
 		)
 
 		group "Developer Name" (
-            dotNetControl dncDeveloperName "System.Windows.Forms.TextBox" height:22 align:#left
+            dotNetControl dncDeveloperName "System.Windows.Forms.TextBox" height: 22 align: #left
         )
 
         group "Additional" (
-            label lblLicenseUrl "License URL" align:#left
-            dotNetControl dncLicenseUrl "System.Windows.Forms.TextBox" height:22 align:#left
+            label lblLicenseUrl "License URL" align: #left
+            dotNetControl dncLicenseUrl "System.Windows.Forms.TextBox" height: 22 align: #left
 
-            label lblDocumentationUrl "Documentation URL" align:#left
-            dotNetControl dncDocumentationUrl "System.Windows.Forms.TextBox" height:22 align:#left
+            label lblDocumentationUrl "Documentation URL" align: #left
+            dotNetControl dncDocumentationUrl "System.Windows.Forms.TextBox" height: 22 align: #left
 
-            label lblHomepageUrl "Homepage URL" align:#left
-            dotNetControl dncHomepageUrl "System.Windows.Forms.TextBox" height:22 align:#left
+            label lblHomepageUrl "Homepage URL" align: #left
+            dotNetControl dncHomepageUrl "System.Windows.Forms.TextBox" height: 22 align: #left
 
-            label lblSupportUrl "Support URL" align:#left
-            dotNetControl dncSupportUrl "System.Windows.Forms.TextBox" height:22 align:#left
+            label lblSupportUrl "Support URL" align: #left
+            dotNetControl dncSupportUrl "System.Windows.Forms.TextBox" height: 22 align: #left
         )
 
         on MaxPkgPackerNewInfoRollout open do (
             setupTextBoxControl dncPackageName
             setupTextBoxControl dncButtonName
-            setupTextBoxControl dncGuid isReadOnly:true
-            setupTextBoxControl dncDescription isMultiline:true
+            setupTextBoxControl dncGuid isReadOnly: true
+            setupTextBoxControl dncDescription isMultiline: true
             setupTextBoxControl dncDeveloperName
             setupTextBoxControl dncLicenseUrl
             setupTextBoxControl dncDocumentationUrl
@@ -2328,18 +2340,18 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         )
     )
 
-    rollout MaxPkgPackerNewSetupRollout "Setup" width:380 category:2
+    rollout MaxPkgPackerNewSetupRollout "Setup" width: 380 category: 2
     (
         group "Interface" (
-            checkbox chkCreateButton "Create 3ds Max Button" checked:true align:#left
-            checkbox chkShowToolbar "Show In MaxPkg Toolbar" checked:true align:#left
+            checkbox chkCreateButton "Create 3ds Max Button" checked: true align: #left
+            checkbox chkShowToolbar "Show In MaxPkg Toolbar" checked: true align: #left
         )
 
         group "Install And Uninstall" (
-            label lblInstallHintA "Sample scripts are optional." align:#left
-            label lblInstallHintB "You can replace them with custom code later." align:#left
-            button btnCreateInstall "Create install.ms" width:120 height:23 align:#left across:2
-            button btnCreateUninstall "Create uninstall.ms" width:120 height:23 align:#right
+            label lblInstallHintA "Sample scripts are optional." align: #left
+            label lblInstallHintB "You can replace them with custom code later." align: #left
+            button btnCreateInstall "Create install.ms" width: 120 height: 23 align: #left across: 2
+            button btnCreateUninstall "Create uninstall.ms" width: 120 height: 23 align: #right
         )
 
         on MaxPkgPackerNewSetupRollout open do (
@@ -2378,40 +2390,40 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         )
     )
 
-    rollout MaxPkgPackerNewFilesRollout "Files" width:380 category:2
+    rollout MaxPkgPackerNewFilesRollout "Files" width: 380 category: 2
     (
         group "Output Folder" (
-            dotNetControl dncOutputFolder "System.Windows.Forms.TextBox" width: 313 height:22 align:#left across: 2
-            button btnBrowseOutput "..." width:40 height:23 align:#right offset:[0, -1]
+            dotNetControl dncOutputFolder "System.Windows.Forms.TextBox" width: 313 height: 22 align: #left across: 2
+            button btnBrowseOutput "..." width: 40 height: 23 align: #right offset: [0, -1]
 		)
 
 		group "SVG Icon" (
-            dotNetControl dncSvgIcon "System.Windows.Forms.TextBox" height:22 width: 313 align:#left across: 2
-            button btnBrowseIcon "..." width:40 height:23 align:#right offset:[0, -1]
+            dotNetControl dncSvgIcon "System.Windows.Forms.TextBox" height: 22 width: 313 align: #left across: 2
+            button btnBrowseIcon "..." width: 40 height: 23 align: #right offset: [0, -1]
 
-			button btnClearIcon "Clear" width:82 height:23 align:#left across: 2
-            button btnPreviewIcon "Preview" width:82 height:23 align:#left offset: [-91, 0]
+			button btnClearIcon "Clear" width: 82 height: 23 align: #left across: 2
+            button btnPreviewIcon "Preview" width: 82 height: 23 align: #left offset: [-91, 0]
 		)
 
 		group "Files List" (
-            listBox lbFiles "" height:7 align:#left
+            listBox lbFiles "" height: 7 align: #left
 
-            button btnAddFiles "[+] Add Files" width:82 height:23 align:#left across:3
-			button btnRemoveFile "[-] Remove" width:82 height:23 align:#left offset: [-31, 0]
-            button btnAddFolder "Add Folder" width:82 height:23 align:#right
+            button btnAddFiles "[+] Add Files" width: 82 height: 23 align: #left across: 3
+			button btnRemoveFile "[-] Remove" width: 82 height: 23 align: #left offset: [-31, 0]
+            button btnAddFolder "Add Folder" width: 82 height: 23 align: #right
         )
 
         group "Entry File" (
-            dotNetControl dncEntryFile "System.Windows.Forms.TextBox" readOnly: true height:22 width: 232 align:#left across: 2
-            button btnUseSelected "Use Selected" width:120 height:23 align:#right offset:[0, -1]
+            dotNetControl dncEntryFile "System.Windows.Forms.TextBox" readOnly: true height: 22 width: 232 align: #left across: 2
+            button btnUseSelected "Use Selected" width: 120 height: 23 align: #right offset: [0, -1]
 
-			checkbox chkCompileEntry "Compile entry file .ms to .mse" checked:true align:#left
+			checkbox chkCompileEntry "Compile entry file .ms to .mse" checked: true align: #left
 		)
 
         on MaxPkgPackerNewFilesRollout open do (
             setupTextBoxControl dncOutputFolder
             setupTextBoxControl dncSvgIcon
-            setupTextBoxControl dncEntryFile isReadOnly:true
+            setupTextBoxControl dncEntryFile isReadOnly: true
 
             isLoadingSettings = true
             dncOutputFolder.Text = packageState.outputFolder
@@ -2448,7 +2460,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         )
 
         on btnBrowseOutput pressed do (
-            local folderPath = getSavePath caption:"Select output folder" initialDir:scriptDir
+            local folderPath = getSavePath caption: "Select output folder" initialDir: scriptDir
             if (folderPath != undefined) do (
                 packageState.outputFolder = folderPath
                 dncOutputFolder.Text = folderPath
@@ -2457,7 +2469,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         )
 
         on btnBrowseIcon pressed do (
-            local filePath = getOpenFileName caption:"Select safe SVG icon" filename:(scriptDir + "*.svg") types:"SVG (*.svg)|*.svg|All Files (*.*)|*.*|"
+            local filePath = getOpenFileName caption: "Select safe SVG icon" filename: (scriptDir + "*.svg") types: "SVG (*.svg)|*.svg|All Files (*.*)|*.*|"
 
             if (filePath != undefined) do (
                 if (isValidSafeSvg filePath) then (
@@ -2468,10 +2480,10 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
                         dncSvgIcon.Text = rootIconFilePath
                         savePackageSettings()
                     ) else (
-                        messageBox "Could not copy SVG icon to root folder." title:"MaxPkg Packer"
+                        messageBox "Could not copy SVG icon to root folder." title: "MaxPkg Packer"
                     )
                 ) else (
-                    messageBox "Selected icon is not a valid safe SVG file." title:"MaxPkg Packer"
+                    messageBox "Selected icon is not a valid safe SVG file." title: "MaxPkg Packer"
                 )
             )
         )
@@ -2501,7 +2513,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         )
 
         on btnAddFolder pressed do (
-            local folderPath = getSavePath caption:"Add package folder" initialDir:scriptDir
+            local folderPath = getSavePath caption: "Add package folder" initialDir: scriptDir
 
             if (folderPath != undefined) do (
                 addFolderFiles folderPath
@@ -2514,7 +2526,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
             if (lbFiles.selection > 0 and lbFiles.selection <= packageFiles.count) do (
                 local selectedFileIndex = lbFiles.selection
                 local selectedFileTitle = lbFiles.items[selectedFileIndex]
-                local shouldRemoveFile = queryBox ("Remove this file from package list?\n\n" + selectedFileTitle) title:"MaxPkg Packer"
+                local shouldRemoveFile = queryBox ("Remove this file from package list?\n\n" + selectedFileTitle) title: "MaxPkg Packer"
 
                 if (shouldRemoveFile) do (
                     deleteItem packageFiles selectedFileIndex
@@ -2538,32 +2550,32 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         )
     )
 
-    rollout MaxPkgPackerNewReleaseRollout "Release" width:380 category:2
+    rollout MaxPkgPackerNewReleaseRollout "Release" width: 380 category: 2
     (
         group "Version" (
-            dropdownList ddlVersionMajor "" width:45 items:(versionNumberItems()) selection:2 align:#left across: 6
-            label lblVersionDotA "." align:#left offset:[-12, 5]
-            dropdownList ddlVersionMinor "" width:45 items:(versionNumberItems m:9) selection:1 align:#left offset:[-65, 0]
-            label lblVersionDotB "." align:#left offset:[-77, 5]
-            dropdownList ddlVersionPatch "" width:45 items:(versionNumberItems m:9) selection:1 align:#left offset:[-130, 0]
+            dropdownList ddlVersionMajor "" width: 45 items: (versionNumberItems()) selection: 2 align: #left across: 6
+            label lblVersionDotA "." align: #left offset: [-12, 5]
+            dropdownList ddlVersionMinor "" width: 45 items: (versionNumberItems m: 9) selection: 1 align: #left offset: [-65, 0]
+            label lblVersionDotB "." align: #left offset: [-77, 5]
+            dropdownList ddlVersionPatch "" width: 45 items: (versionNumberItems m: 9) selection: 1 align: #left offset: [-130, 0]
 
-			dropdownList ddlChannel "" width: 75 items:#("stable","alpha","beta") selection:1 align: #left  offset:[-128, 0]
+			dropdownList ddlChannel "" width: 75 items: #("stable","alpha","beta") selection: 1 align: #left  offset: [-128, 0]
 		)
 
 		group "Misc." (
-            label lblMinMax "Min 3ds Max" align:#left across: 2
-			label lblReleaseDate "Release Date" align:#left
-            dropdownList ddlMinMax "" width: 75 items:#("2012","2013","2014","2015","2016","2017","2018","2019","2020","2021","2022","2023","2024","2025","2026","2027") selection:1 align:#left across: 2
-            dotNetControl dncReleaseDate "System.Windows.Forms.DateTimePicker" height:22 align:#left
+            label lblMinMax "Min 3ds Max" align: #left across: 2
+			label lblReleaseDate "Release Date" align: #left
+            dropdownList ddlMinMax "" width: 75 items: #("2012","2013","2014","2015","2016","2017","2018","2019","2020","2021","2022","2023","2024","2025","2026","2027") selection: 1 align: #left across: 2
+            dotNetControl dncReleaseDate "System.Windows.Forms.DateTimePicker" height: 22 align: #left
         )
 
         group "Changelog" (
-            listBox lbChangelog "" height:6 align:#left
-            dropdownList ddlChangeType "" width: 75 items:#("Added","Fixed","Changed","Removed","Improved") selection:1 align:#left across:2
-            dotNetControl dncChangeContent "System.Windows.Forms.TextBox" width: 278 height:22 align:#right
-            button btnAddChange "[+] Add" width:82 height:23 align:#left across:3 offset:[0, 10]
-			button btnRemoveChange "[-] Remove" width:82 height:23 align:#left offset:[-31, 10]
-            button btnEditChange "Edit/Save" width:82 height:23 align:#right offset:[0, 10]
+            listBox lbChangelog "" height: 6 align: #left
+            dropdownList ddlChangeType "" width: 75 items: #("Added","Fixed","Changed","Removed","Improved") selection: 1 align: #left across: 2
+            dotNetControl dncChangeContent "System.Windows.Forms.TextBox" width: 278 height: 22 align: #right
+            button btnAddChange "[+] Add" width: 82 height: 23 align: #left across: 3 offset: [0, 10]
+			button btnRemoveChange "[-] Remove" width: 82 height: 23 align: #left offset: [-31, 10]
+            button btnEditChange "Edit/Save" width: 82 height: 23 align: #right offset: [0, 10]
 
         )
 
@@ -2676,9 +2688,9 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         )
     )
 
-    rollout MaxPkgPackerNewActionsRollout "Actions" width:380 category:3
+    rollout MaxPkgPackerNewActionsRollout "Actions" width: 380 category: 3
     (
-        checkbutton btnBuild "Build MZP" width:380 height: 32 align:#center checked:true highlightColor:(color 52 168 83)
+        checkbutton btnBuild "Build MZP" width: 380 height: 32 align: #center checked: true highlightColor: (color 52 168 83)
 
         on MaxPkgPackerNewActionsRollout open do (
             refreshValidationStatusButton()
@@ -2697,16 +2709,16 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         )
     )
 
-    rollout MaxPkgPackerNewLogRollout "Log" width:700 height:100
+    rollout MaxPkgPackerNewLogRollout "Log" width: 700 height: 100
     (
-        dotNetControl dncLogContent "System.Windows.Forms.TextBox" height:300 align:#left
+        dotNetControl dncLogContent "System.Windows.Forms.TextBox" height: 300 align: #left
 
-        button btnClearLogWindow "Clear Log" width:80 height:23 align:#left across:2
-        button btnCloseLogWindow "Close" width:80 height:23 align:#right
+        button btnClearLogWindow "Clear Log" width: 80 height: 23 align: #left across: 2
+        button btnCloseLogWindow "Close" width: 80 height: 23 align: #right
 
         on MaxPkgPackerNewLogRollout open do (
             isLogDialogOpen = true
-            setupTextBoxControl dncLogContent isMultiline:true isReadOnly:true
+            setupTextBoxControl dncLogContent isMultiline: true isReadOnly: true
             dncLogContent.Text = getLogText()
         )
 
@@ -2746,7 +2758,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
 
         if (not isLogDialogOpen) do (
             try (
-                createDialog MaxPkgPackerNewLogRollout width:600 height:340
+                createDialog MaxPkgPackerNewLogRollout width: 600 height: 340
             ) catch (
                 isLogDialogOpen = false
                 return false
@@ -2766,25 +2778,25 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         return true
     )
 
-    rollout MaxPkgPackerNewUpdateNoticeRollout "MaxPkg Packer Updated" width:380 height:330
+    rollout MaxPkgPackerNewUpdateNoticeRollout "MaxPkg Packer Updated" width: 380 height: 330
     (
         group "Update Installed" (
-            label lblUpdateNoticeTitle "MaxPkg Packer has been updated." align:#left
-            dotNetControl dncUpdateNoticeContent "System.Windows.Forms.TextBox" height:220 align:#left
+            label lblUpdateNoticeTitle "MaxPkg Packer has been updated." align: #left
+            dotNetControl dncUpdateNoticeContent "System.Windows.Forms.TextBox" height: 220 align: #left
         )
 
-        button btnRestartUpdatedScript "Restart" width:120 height:23 align:#left across:2
-        button btnCloseUpdateNotice "Close" width:80 height:23 align:#right
+        button btnRestartUpdatedScript "Restart" width: 120 height: 23 align: #left across: 2
+        button btnCloseUpdateNotice "Close" width: 80 height: 23 align: #right
 
         on MaxPkgPackerNewUpdateNoticeRollout open do (
-            setupTextBoxControl dncUpdateNoticeContent isMultiline:true isReadOnly:true
+            setupTextBoxControl dncUpdateNoticeContent isMultiline: true isReadOnly: true
             dncUpdateNoticeContent.Text = pendingUpdateNoticeContent
         )
 
         on btnRestartUpdatedScript pressed do (
             try (destroyDialog MaxPkgPackerNewUpdateNoticeRollout) catch()
             try (fileIn pendingUpdateScriptFile) catch (
-                messageBox "Update installed, but the script could not restart automatically." title:"MaxPkg Packer"
+                messageBox "Update installed, but the script could not restart automatically." title: "MaxPkg Packer"
             )
         )
 
@@ -2812,9 +2824,9 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
 
         try (destroyDialog MaxPkgPackerNewUpdateNoticeRollout) catch()
         try (
-            createDialog MaxPkgPackerNewUpdateNoticeRollout width:400 height:355
+            createDialog MaxPkgPackerNewUpdateNoticeRollout width: 400 height: 355
         ) catch (
-            messageBox pendingUpdateNoticeContent title:"MaxPkg Packer Updated"
+            messageBox pendingUpdateNoticeContent title: "MaxPkg Packer Updated"
             return false
         )
 
@@ -2822,7 +2834,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
     )
 
     fn startupUpdateDoWork sender eventArgs = (
-        startupUpdateResult = checkAndDownloadScriptUpdate showMessages:false reloadAfterUpdate:false
+        startupUpdateResult = checkAndDownloadScriptUpdate showMessages: false reloadAfterUpdate: false
         local hasStartupUpdate = false
         if (startupUpdateResult != undefined) do hasStartupUpdate = startupUpdateResult.isUpdated
         eventArgs.Result = hasStartupUpdate
@@ -2848,39 +2860,39 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         )
     )
 
-    rollout MaxPkgPackerNewAboutRollout "About" width:380 category:4
+    rollout MaxPkgPackerNewAboutRollout "About" width: 380 category: 4
     (
         local isUpdateCheckRunning = false
         local aboutUpdateWorker = undefined
         local aboutUpdateResult = undefined
 
         group "Script Info" (
-            label lblAboutTitle "" align:#left
-            label lblAboutVersion "" align:#left
-            label lblAboutAuthor "" align:#left
-            dotNetControl dncAboutDescription "System.Windows.Forms.TextBox" height:70 align:#left
+            label lblAboutTitle "" align: #left
+            label lblAboutVersion "" align: #left
+            label lblAboutAuthor "" align: #left
+            dotNetControl dncAboutDescription "System.Windows.Forms.TextBox" height: 70 align: #left
         )
 
         group "Links" (
-            label lblSiteCaption "Website:" align:#left across: 2
-            hyperlink hplAboutSite "" align:#left color:orange hoverColor:orange visitedColor:orange offset: [-120, 0]
-            label lblDeveloperCaption "Developer:" align:#left across: 2
-            hyperlink hplAboutDeveloper "" align:#left color:orange hoverColor:orange visitedColor:orange offset: [-120, 0]
-            label lblHelpCaption "Help:" align:#left across: 2
-            hyperlink hplAboutHelp "" align:#left color:orange hoverColor:orange visitedColor:orange offset: [-120, 0]
+            label lblSiteCaption "Website:" align: #left across: 2
+            hyperlink hplAboutSite "" align: #left color: orange hoverColor: orange visitedColor: orange offset: [-120, 0]
+            label lblDeveloperCaption "Developer:" align: #left across: 2
+            hyperlink hplAboutDeveloper "" align: #left color: orange hoverColor: orange visitedColor: orange offset: [-120, 0]
+            label lblHelpCaption "Help:" align: #left across: 2
+            hyperlink hplAboutHelp "" align: #left color: orange hoverColor: orange visitedColor: orange offset: [-120, 0]
         )
 
         group "Update" (
-            label lblAboutUpdateStatus "Update: not checked" align:#left
-            button btnCheckAboutUpdate "Check Updates" width:120 height:23 align:#left
+            label lblAboutUpdateStatus "Update: not checked" align: #left
+            button btnCheckAboutUpdate "Check Updates" width: 120 height: 23 align: #left
         )
 
         group "Paths" (
-            label lblAboutRoot "" align:#left
-            label lblAboutIni "" align:#left
+            label lblAboutRoot "" align: #left
+            label lblAboutIni "" align: #left
         )
 
-        fn updateLinkControl linkControl linkUrl emptyCaption:"Not configured" = (
+        fn updateLinkControl linkControl linkUrl emptyCaption: "Not configured" = (
             if (linkUrl == undefined or linkUrl == "") then (
                 linkControl.caption = emptyCaption
                 linkControl.address = ""
@@ -2901,19 +2913,19 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
             lblAboutRoot.caption = "Root: " + scriptDir
             lblAboutIni.caption = "INI: " + iniFilePath
 
-            setupTextBoxControl dncAboutDescription isMultiline:true isReadOnly:true
+            setupTextBoxControl dncAboutDescription isMultiline: true isReadOnly: true
             dncAboutDescription.Text = scriptInfo.descriptionContent
 
-            updateLinkControl hplAboutSite scriptInfo.siteUrl emptyCaption:"Not configured"
-            updateLinkControl hplAboutDeveloper scriptInfo.developerUrl emptyCaption:"Not configured"
-            updateLinkControl hplAboutHelp scriptInfo.helpUrl emptyCaption:"Not configured"
+            updateLinkControl hplAboutSite scriptInfo.siteUrl emptyCaption: "Not configured"
+            updateLinkControl hplAboutDeveloper scriptInfo.developerUrl emptyCaption: "Not configured"
+            updateLinkControl hplAboutHelp scriptInfo.helpUrl emptyCaption: "Not configured"
 
             try (MaxPkgPackerNewFloater.title = scriptInfo.scriptTitle + " v" + scriptInfo.versionString) catch()
             return true
         )
 
         fn aboutUpdateDoWork sender eventArgs = (
-            aboutUpdateResult = checkAndDownloadScriptUpdate showMessages:false reloadAfterUpdate:false
+            aboutUpdateResult = checkAndDownloadScriptUpdate showMessages: false reloadAfterUpdate: false
             local hasAboutUpdate = false
             if (aboutUpdateResult != undefined) do hasAboutUpdate = aboutUpdateResult.isUpdated
             eventArgs.Result = hasAboutUpdate
@@ -2966,7 +2978,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
 
     fn addContentRollout tabId = (
         activeContentRollout = contentRolloutForTabId tabId
-        addRollout activeContentRollout MaxPkgPackerNewFloater rolledUp:false border: false
+        addRollout activeContentRollout MaxPkgPackerNewFloater rolledUp: false border: false
         return true
     )
 
@@ -2979,7 +2991,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         return true
     )
 
-    fn switchTab requestedTabId shouldSave:true = (
+    fn switchTab requestedTabId shouldSave: true = (
         local tabId = normalizeTabId requestedTabId
 
         if (MaxPkgPackerNewFloater == undefined) do return false
@@ -3004,10 +3016,10 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
     currentTabId = selectedTabId()
     MaxPkgPackerNewFloater = newRolloutFloater "MaxPkg Packer New UI" 400 680
 
-    addRollout MaxPkgPackerNewTabsRollout MaxPkgPackerNewFloater rolledUp:false border: false
+    addRollout MaxPkgPackerNewTabsRollout MaxPkgPackerNewFloater rolledUp: false border: false
     addContentRollout currentTabId
-    addRollout MaxPkgPackerNewActionsRollout MaxPkgPackerNewFloater rolledUp:false border: false
-    addRollout MaxPkgPackerNewAboutRollout MaxPkgPackerNewFloater rolledUp:true
+    addRollout MaxPkgPackerNewActionsRollout MaxPkgPackerNewFloater rolledUp: false border: false
+    addRollout MaxPkgPackerNewAboutRollout MaxPkgPackerNewFloater rolledUp: true
     scheduleValidationStatusUpdate()
     startStartupUpdateCheck()
 )
