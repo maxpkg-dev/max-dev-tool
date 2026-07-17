@@ -1,6 +1,6 @@
 /*
 [INFO]
-NAME=MaxPkg Packer New UI Prototype
+NAME=MaxPkg Packager
 VERSION=1.0.1
 AUTHOR=Vasyl Lukianenko
 DEV=https://3dground.net
@@ -80,7 +80,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         outputFolder = "",
         svgIconFile = "",
         entryFile = "",
-        compileEntry = false,
+        compileEntry = true,
         versionMajor = "1",
         versionMinor = "0",
         versionPatch = "0",
@@ -1207,6 +1207,12 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         return packageState.compileEntry
     )
 
+    fn syncCompileEntryState = (
+        if (canCompileEntryFileFromState()) do return true
+        packageState.compileEntry = false
+        return false
+    )
+
     fn compiledEntryPath entryFilePath = (
         local normalizedEntryFile = normalizePath entryFilePath
         local entryFolderPath = getFilenamePath normalizedEntryFile
@@ -1237,6 +1243,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
     )
 
     fn refreshFilesView = (
+        syncCompileEntryState()
         try (MaxPkgPackerNewFilesRollout.lbFiles.items = getPackageFileNames()) catch()
         try (MaxPkgPackerNewFilesRollout.dncEntryFile.Text = packageState.entryFile) catch()
         try (
@@ -1313,6 +1320,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         settingsSetEscaped "outputFolder" packageState.outputFolder
         settingsSetEscaped "svgIcon" packageState.svgIconFile
         settingsSetEscaped "entry" packageState.entryFile
+        syncCompileEntryState()
         settingsSetEscaped "compileEntry" (boolToString packageState.compileEntry)
         settingsSetEscaped "version" (buildVersionStringFromState())
         settingsSetEscaped "releaseChannel" packageState.releaseChannel
@@ -1354,7 +1362,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
             packageState.outputFolder = settingsGetEscaped "outputFolder" defaultContent:(scriptDir + "dist")
             packageState.svgIconFile = settingsGetEscaped "svgIcon"
             packageState.entryFile = settingsGetEscaped "entry"
-            packageState.compileEntry = settingsGetBool "compileEntry" defaultContent:false
+            packageState.compileEntry = settingsGetBool "compileEntry" defaultContent:true
             packageState.releaseChannel = settingsGetEscaped "releaseChannel" defaultContent:"stable"
             packageState.releaseDate = settingsGetEscaped "releaseDate" defaultContent:(currentDateString())
             packageState.minMaxVersion = settingsGetEscaped "min3dsMax" defaultContent:"2012"
@@ -1379,6 +1387,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         activeChangelogVersion = buildVersionStringFromState()
         if (not (loadChangelogForVersion activeChangelogVersion)) do changelogItems = #()
         syncEntryFileWithPackageList()
+        syncCompileEntryState()
         packageState.releaseDate = (parseSqlDate packageState.releaseDate).ToString "yyyy-MM-dd"
 
         isLoadingSettings = false
@@ -1405,6 +1414,11 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         return true
     )
 
+    fn addValidationError errorContent uiPlace = (
+        addLog "ERROR" (errorContent + " (" + uiPlace + ")")
+        return true
+    )
+
     fn validatePackageSettings = (
         local isValid = true
         local packageTitle = trimString packageState.packageTitle
@@ -1423,71 +1437,71 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
 
         clearLog()
 
-        if (packageTitle == "") do (addLog "ERROR" "Package name is required"; isValid = false)
-        if (buttonTitle == "") do (addLog "ERROR" "Button name is required"; isValid = false)
-        if (packageTitle != "" and not (isSafePackageDisplayText packageTitle)) do (addLog "ERROR" "Package name allows only A-Z, a-z, 0-9, space, hyphen, and underscore"; isValid = false)
-        if (buttonTitle != "" and not (isSafePackageDisplayText buttonTitle)) do (addLog "ERROR" "Button name allows only A-Z, a-z, 0-9, space, hyphen, and underscore"; isValid = false)
-        if (descriptionContent == "") do (addLog "ERROR" "Description is required"; isValid = false)
-        if (developerTitle == "") do (addLog "ERROR" "Developer name is required"; isValid = false)
-        if (descriptionContent.count > 500) do (addLog "ERROR" "Description must be 500 characters or less"; isValid = false)
-        if (guidContent == "" or not (isValidGuid guidContent)) do (addLog "ERROR" "Package GUID must be a valid UUID"; isValid = false)
-        if (versionContent == "") do (addLog "ERROR" "Version is required"; isValid = false)
-        if (packageState.releaseChannel == "") do (addLog "ERROR" "Release channel is required"; isValid = false)
-        if (releaseDateContent == "") do (addLog "ERROR" "Release date is required"; isValid = false)
-        if (not (hasChangelogEntries())) do (addLog "ERROR" ("Changelog for version " + versionContent + " must contain at least one item"); isValid = false)
-        if (not (isValidLicenseTypeForState())) do (addLog "ERROR" "License is required"; isValid = false)
-        if (minMax == undefined or maxMax == undefined) do (addLog "ERROR" "Min and max 3ds Max versions must be numbers"; isValid = false)
-        if (minMax != undefined and maxMax != undefined and minMax > maxMax) do (addLog "ERROR" "Min 3ds Max version must be <= max version"; isValid = false)
+        if (packageTitle == "") do (addValidationError "Package name is required" "1. Info -> Package Name"; isValid = false)
+        if (buttonTitle == "") do (addValidationError "Button name is required" "1. Info -> Button Name"; isValid = false)
+        if (packageTitle != "" and not (isSafePackageDisplayText packageTitle)) do (addValidationError "Package name allows only A-Z, a-z, 0-9, space, hyphen, and underscore" "1. Info -> Package Name"; isValid = false)
+        if (buttonTitle != "" and not (isSafePackageDisplayText buttonTitle)) do (addValidationError "Button name allows only A-Z, a-z, 0-9, space, hyphen, and underscore" "1. Info -> Button Name"; isValid = false)
+        if (descriptionContent == "") do (addValidationError "Description is required" "1. Info -> Description"; isValid = false)
+        if (developerTitle == "") do (addValidationError "Developer name is required" "1. Info -> Developer Name"; isValid = false)
+        if (descriptionContent.count > 500) do (addValidationError "Description must be 500 characters or less" "1. Info -> Description"; isValid = false)
+        if (guidContent == "" or not (isValidGuid guidContent)) do (addValidationError "Package GUID must be a valid UUID" "1. Info -> GUID"; isValid = false)
+        if (versionContent == "") do (addValidationError "Version is required" "4. Release -> Version"; isValid = false)
+        if (packageState.releaseChannel == "") do (addValidationError "Release channel is required" "4. Release -> Channel"; isValid = false)
+        if (releaseDateContent == "") do (addValidationError "Release date is required" "4. Release -> Release Date"; isValid = false)
+        if (not (hasChangelogEntries())) do (addValidationError ("Changelog for version " + versionContent + " must contain at least one item") "4. Release -> Changelog"; isValid = false)
+        if (not (isValidLicenseTypeForState())) do (addValidationError "License is required" "1. Info -> License"; isValid = false)
+        if (minMax == undefined or maxMax == undefined) do (addValidationError "Min and max 3ds Max versions must be numbers" "4. Release -> Min 3ds Max"; isValid = false)
+        if (minMax != undefined and maxMax != undefined and minMax > maxMax) do (addValidationError "Min 3ds Max version must be <= max version" "4. Release -> Min 3ds Max"; isValid = false)
 
         if (entryFilePath == "") then (
-            addLog "ERROR" "Entry file is required"
+            addValidationError "Entry file is required" "3. Files -> Entry File"
             isValid = false
         ) else (
             local entryItem = findPackageFileByRel entryFilePath
 
             if (entryItem == undefined) then (
-                addLog "ERROR" "Entry file must be included in package files"
+                addValidationError "Entry file must be included in package files" "3. Files -> Entry File"
                 isValid = false
             ) else (
                 local entryExt = lowerString (getFilenameType entryFilePath)
 
-                if (not (doesFileExist entryItem[1])) do (addLog "ERROR" "Entry file does not exist"; isValid = false)
-                if (entryExt != ".ms" and entryExt != ".mse" and entryExt != ".py") do (addLog "ERROR" "Entry file must be .ms, .mse, or .py"; isValid = false)
-                if (isEntryCompileEnabled and entryExt != ".ms") do (addLog "ERROR" "Entry compile requires .ms entry file"; isValid = false)
+                if (not (doesFileExist entryItem[1])) do (addValidationError "Entry file does not exist" "3. Files -> Entry File"; isValid = false)
+                if (entryExt != ".ms" and entryExt != ".mse" and entryExt != ".py") do (addValidationError "Entry file must be .ms, .mse, or .py" "3. Files -> Entry File"; isValid = false)
+                if (isEntryCompileEnabled and entryExt != ".ms") do (addValidationError "Entry compile requires .ms entry file" "3. Files -> Compile Entry"; isValid = false)
             )
         )
 
         if (svgIconFilePath == "") then (
-            addLog "ERROR" "SVG icon is required"
+            addValidationError "SVG icon is required" "3. Files -> SVG Icon"
             isValid = false
         ) else (
             if (isValidSafeSvg svgIconFilePath) then (
                 addLog "OK" "SVG icon validated"
             ) else (
-                addLog "ERROR" "Selected icon is not a valid safe SVG file."
+                addValidationError "Selected icon is not a valid safe SVG file." "3. Files -> SVG Icon"
                 isValid = false
             )
         )
 
-        if (packageFiles.count == 0) do (addLog "ERROR" "At least one package file is required"; isValid = false)
+        if (packageFiles.count == 0) do (addValidationError "At least one package file is required" "3. Files -> Files"; isValid = false)
 
         for packageItem in packageFiles do (
-            if (not (isSafeRelativePath packageItem[2])) do (addLog "ERROR" ("Invalid relative path: " + packageItem[2]); isValid = false)
-            if (not (doesFileExist packageItem[1])) do (addLog "ERROR" ("Missing file: " + packageItem[2]); isValid = false)
+            if (not (isSafeRelativePath packageItem[2])) do (addValidationError ("Invalid relative path: " + packageItem[2]) "3. Files -> Files"; isValid = false)
+            if (not (doesFileExist packageItem[1])) do (addValidationError ("Missing file: " + packageItem[2]) "3. Files -> Files"; isValid = false)
 
             local relativeLowerPath = lowerString packageItem[2]
-            if (endsWith relativeLowerPath "\\install.ms") do (addLog "ERROR" "install.ms is only allowed in package root"; isValid = false)
-            if (endsWith relativeLowerPath "\\uninstall.ms") do (addLog "ERROR" "uninstall.ms is only allowed in package root"; isValid = false)
+            if (endsWith relativeLowerPath "\\install.ms") do (addValidationError "install.ms is only allowed in package root" "3. Files -> Files"; isValid = false)
+            if (endsWith relativeLowerPath "\\uninstall.ms") do (addValidationError "uninstall.ms is only allowed in package root" "3. Files -> Files"; isValid = false)
         )
 
         if ((detectRootHook "install.ms") != "") do addLog "OK" "install.ms detected"
         if ((detectRootHook "uninstall.ms") != "") do addLog "OK" "uninstall.ms detected"
 
         if (outputFolderPath == "" or outputFolderPath == "\\") then (
-            addLog "ERROR" "Output folder is required"
+            addValidationError "Output folder is required" "3. Files -> Output Folder"
             isValid = false
         ) else if (not (ensureDirectory outputFolderPath)) then (
-            addLog "ERROR" "Output folder does not exist and cannot be created"
+            addValidationError "Output folder does not exist and cannot be created" "3. Files -> Output Folder"
             isValid = false
         )
 
@@ -2391,7 +2405,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
             dotNetControl dncEntryFile "System.Windows.Forms.TextBox" readOnly: true height:22 width: 232 align:#left across: 2
             button btnUseSelected "Use Selected" width:120 height:23 align:#right offset:[0, -1]
 
-			checkbox chkCompileEntry "Compile entry file .ms to .mse" checked:false align:#left
+			checkbox chkCompileEntry "Compile entry file .ms to .mse" checked:true align:#left
 		)
 
         on MaxPkgPackerNewFilesRollout open do (
@@ -2404,6 +2418,7 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
             dncSvgIcon.Text = packageState.svgIconFile
             dncEntryFile.Text = packageState.entryFile
             lbFiles.items = getPackageFileNames()
+            syncCompileEntryState()
             chkCompileEntry.enabled = canCompileEntryFileFromState()
             chkCompileEntry.checked = packageState.compileEntry and canCompileEntryFileFromState()
             isLoadingSettings = false
@@ -2513,7 +2528,8 @@ Builds MaxPkg-compatible MZP packages from a project folder.=
         on btnUseSelected pressed do (
             if (lbFiles.selection > 0 and lbFiles.selection <= lbFiles.items.count) do (
                 packageState.entryFile = lbFiles.items[lbFiles.selection]
-                if (not (canCompileEntryFileFromState())) do packageState.compileEntry = false
+                packageState.compileEntry = canCompileEntryFileFromState()
+                syncCompileEntryState()
                 dncEntryFile.Text = packageState.entryFile
                 chkCompileEntry.enabled = canCompileEntryFileFromState()
                 chkCompileEntry.checked = packageState.compileEntry
