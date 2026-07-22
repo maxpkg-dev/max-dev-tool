@@ -1766,7 +1766,7 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         scriptContent += "    ) else (\n"
         scriptContent += "        maxPkgEntryInstallMacroButton entryFolder packageGuid\n"
         scriptContent += "        maxPkgEntryRunOptionalScript (entryFolder + \"install.ms\")\n"
-        scriptContent += "        try (if (MaxPkg != undefined) do MaxPkg.newInstallation packageGuid) catch()\n"
+        scriptContent += "        try (if (MaxPkg != undefined) do MaxPkg.packageInstalled packageGuid) catch()\n"
         scriptContent += "    )\n"
         scriptContent += ")\n"
 
