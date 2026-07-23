@@ -1569,6 +1569,7 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         format "%" (iniLine "packager" packagerTitle) to: stringStreamContent
         format "%" (iniLine "packagerVersion" packagerVersion) to: stringStreamContent
         format "\n[changelog]\n" to: stringStreamContent
+        format "%" (iniLine "count" (changelogItems.count as string)) to: stringStreamContent
 
         for changelogIndex in 1 to changelogItems.count do (
             format "%" (iniLine ((changelogIndex as string) + "_type") changelogItems[changelogIndex][1]) to: stringStreamContent
