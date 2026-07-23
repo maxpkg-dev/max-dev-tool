@@ -1,7 +1,7 @@
 /*
 [INFO]
 NAME=MaxPkg Packager
-VERSION=1.0.1
+VERSION=1.0.2
 AUTHOR=Vasyl Lukianenko
 DEV=https://3dground.net
 SITE=https://maxpkg.dev
@@ -19,6 +19,11 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
 
 [1.0.1]
 * Compact UI functional wiring=
+
+[1.0.2]
++ Added: Check missing files=
+* Changed: install and unsintall sample scripts=
+- BugFix: Can pack with missing files=
 
 [SCRIPT]
 */
@@ -888,10 +893,22 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         local fileItems = #()
 
         for packageItem in packageFiles do (
-            append fileItems packageItem[2]
+            if (doesFileExist packageItem[1]) then (
+                append fileItems packageItem[2]
+            ) else (
+                append fileItems ("[missing] " + packageItem[2])
+            )
         )
 
         return fileItems
+    )
+
+    fn hasMissingPackageFiles = (
+        for packageItem in packageFiles do (
+            if (not (doesFileExist packageItem[1])) do return true
+        )
+
+        return false
     )
 
     fn isValidSafeSvg filePath = (
@@ -1130,11 +1147,11 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         if ((svgIconStatusForState()) == #invalid) do return true
         if (not (hasChangelogEntries())) do return true
         if (packageFiles.count == 0) do return true
+        if (hasMissingPackageFiles()) do return true
         if (not (isValidOutputFolderForState())) do return true
 
         for packageItem in packageFiles do (
             if (not (isSafeRelativePath packageItem[2])) do return true
-            if (not (doesFileExist packageItem[1])) do return true
 
             local relativeLowerPath = lowerString packageItem[2]
             if (endsWith relativeLowerPath "\\install.ms") do return true
@@ -1777,6 +1794,7 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         local sampleContent = ""
 
         sampleContent += "(\n"
+        sampleContent += "    if (MaxPkg == undefined) do (\n"
         sampleContent += "    local scriptDir = getFilenamePath (getSourceFileName())\n"
         sampleContent += "    local manifestFilePath = scriptDir + \"manifest.ini\"\n"
         sampleContent += "    local changelogFilePath = scriptDir + \"maxpkg-changelog.ini\"\n"
@@ -1814,6 +1832,7 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         sampleContent += "        on btnCloseInstallInfo pressed do destroyDialog MaxPkgSampleInstallRollout\n"
         sampleContent += "    )\n"
         sampleContent += "    createDialog MaxPkgSampleInstallRollout width: 450 height: 350 modal: false style: #(#style_titlebar, #style_sysmenu, #style_toolwindow)\n"
+        sampleContent += "    )\n"
         sampleContent += ")\n"
         return sampleContent
     )
@@ -1822,11 +1841,13 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         local sampleContent = ""
 
         sampleContent += "(\n"
+        sampleContent += "    if (MaxPkg == undefined) do (\n"
         sampleContent += "    local scriptDir = getFilenamePath (getSourceFileName())\n"
         sampleContent += "    local manifestFilePath = scriptDir + \"manifest.ini\"\n"
         sampleContent += "    local packageTitle = getINISetting manifestFilePath \"package\" \"name\"\n"
         sampleContent += "    if (packageTitle == undefined or packageTitle == \"\") do packageTitle = \"Package\"\n"
         sampleContent += "    messageBox (packageTitle + \" has been completely removed.\") title: \"Uninstall Complete\"\n"
+        sampleContent += "    )\n"
         sampleContent += ")\n"
         return sampleContent
     )
@@ -2538,14 +2559,21 @@ The package does not install MaxPkg Toolbar or MaxPkg Runtime. =
         )
 
         on btnUseSelected pressed do (
-            if (lbFiles.selection > 0 and lbFiles.selection <= lbFiles.items.count) do (
-                packageState.entryFile = lbFiles.items[lbFiles.selection]
-                packageState.compileEntry = canCompileEntryFileFromState()
-                syncCompileEntryState()
-                dncEntryFile.Text = packageState.entryFile
-                chkCompileEntry.enabled = canCompileEntryFileFromState()
-                chkCompileEntry.checked = packageState.compileEntry
-                savePackageSettings()
+            if (lbFiles.selection > 0 and lbFiles.selection <= packageFiles.count) do (
+                local selectedPackageItem = packageFiles[lbFiles.selection]
+
+                if (not (doesFileExist selectedPackageItem[1])) then (
+                    messageBox ("Selected package file is missing:\n\n" + selectedPackageItem[2]) title: "MaxPkg Packer"
+                    scheduleValidationStatusUpdate()
+                ) else (
+                    packageState.entryFile = selectedPackageItem[2]
+                    packageState.compileEntry = canCompileEntryFileFromState()
+                    syncCompileEntryState()
+                    dncEntryFile.Text = packageState.entryFile
+                    chkCompileEntry.enabled = canCompileEntryFileFromState()
+                    chkCompileEntry.checked = packageState.compileEntry
+                    savePackageSettings()
+                )
             )
         )
     )
