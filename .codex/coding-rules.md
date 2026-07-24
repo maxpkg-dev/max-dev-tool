@@ -163,3 +163,5 @@ try (watchdogMgr.beat stage: "converting_glb") catch()
 - If a setting is saved from UI, use the existing settings pattern for that rollout.
 - When adding a new setting, provide a safe default and load it on startup.
 - Error messages shown to the user should explain what is missing or what failed.
+- For `.NET` text input controls in 3ds Max UI, disable accelerators while the control has focus and enable them again on blur/close. Bind `Enter`/`GotFocus` to `enableAccelerators = false` and `Leave`/`LostFocus` or rollout close to `enableAccelerators = true`.
+- Keep `Tab` navigation usable for `.NET` text inputs. Multiline fields may accept `Enter`, but they should not capture `Tab`; handle `KeyDown` when needed so `Tab` and `Shift+Tab` move focus between controls.
