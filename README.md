@@ -271,6 +271,61 @@ When enabled:
 - the temporary build copy is compiled to `.mse`;
 - the package uses the generated `.mse` as the entry file.
 
+### Build Path Remap
+
+`Build Path Remap` is an advanced, collapsed section in `3. Files`.
+
+Use it when your source project must keep files in one folder, but the final package needs those files in another folder.
+
+Example:
+
+```text
+COMPILE -> /
+```
+
+This means files such as:
+
+```text
+COMPILE\uac.lnk
+COMPILE\external_script.ms
+```
+
+will be copied into the package root as:
+
+```text
+uac.lnk
+external_script.ms
+```
+
+Leave the target folder empty when you want to remap into the package root.
+
+### Extra Macros
+
+`Extra Macros` is an advanced, collapsed section in `3. Files`.
+
+Use it when your package needs more than one 3ds Max macro button. The main macro button runs the `Entry File`; extra macros let you create additional buttons that run other `.ms`, `.mse`, or `.py` files from `Files List`.
+
+To add an extra macro:
+
+1. Add the script file to `Files List`.
+2. Open `Extra Macros`.
+3. Choose the script file from the dropdown.
+4. Enter the button name.
+5. Enable `Compile .ms to .mse` if needed.
+6. Click `Add`.
+
+Extra macro button names may use only:
+
+```text
+A-Z a-z space _
+```
+
+Spaces are removed internally when the packager creates the technical `macroScript` name, so a button name like `Open Tools` becomes a safe macro identifier automatically.
+
+If `Compile .ms to .mse` is enabled for an extra macro, the build uses the compiled `.mse` file for that macro. If the same file is also used as the main `Entry File`, the compile option must match in both places.
+
+Extra macros respect `Build Path Remap`. For example, if `COMPILE\tool.ms` is remapped to the package root and used by an extra macro, the generated macro will run `tool.ms` or `tool.mse` from the final package location.
+
 ## 4. Release
 
 ### Version
@@ -386,7 +441,7 @@ icons\icon.svg
 
 `mzp.run` is the native 3ds Max MZP command file.
 
-`mzp.run.ms` runs during installation. It reads the manifest, creates the optional macro button, installs the icon, runs `install.ms` if it exists, and refreshes MaxPkg toolbar when possible.
+`mzp.run.ms` runs during installation. It reads the manifest, creates the optional main macro button, creates any extra macro buttons, installs the icon, runs `install.ms` if it exists, and notifies MaxPkg when possible.
 
 ## Testing The Package
 
