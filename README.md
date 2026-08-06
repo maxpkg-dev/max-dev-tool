@@ -166,6 +166,21 @@ These fields are optional, but useful:
 - `Homepage URL`
 - `Support URL`
 
+### Purchase URL
+
+Use `Purchase URL` when your package has a paid license, donation page, sponsor page, or another external support link.
+
+If you add a purchase link, choose how the button should be displayed on the website:
+
+- `Buy`
+- `Purchase`
+- `Get license`
+- `Donate`
+- `Support`
+- `Sponsor`
+
+Pick the label that best matches the action users should take.
+
 ## 2. Setup
 
 ### Create 3ds Max Button
