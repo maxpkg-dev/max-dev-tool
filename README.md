@@ -24,16 +24,17 @@ Supported entry files:
 
 ## Quick Start
 
-1. Download or copy `maxpkg-packager.ms`.
-2. Put it into the root folder of your own project.
-3. Open 3ds Max.
-4. Run `maxpkg-packager.ms` from `Scripting > Run Script...`, or drag it into a viewport.
-5. Fill the required fields in the packager window.
-6. Add your package files.
-7. Select an entry file and click `Use Selected`.
-8. Add at least one changelog item for the current version.
-9. Fix anything shown by the `Has Issues` status.
-10. Click `Build MZP`.
+1. Download and extract the MaxPkg repository.
+2. Copy `maxpkg-packager.ms` into the root folder of your own project.
+3. If needed, copy `_install.ms`, `_uninstall.ms`, or both into the same project folder.
+4. Open 3ds Max.
+5. Run `maxpkg-packager.ms` from `Scripting > Run Script...`, or drag it into a viewport.
+6. Fill the required fields in the packager window.
+7. Add your package files.
+8. Select an entry file and click `Use Selected`.
+9. Add at least one changelog item for the current version.
+10. Fix anything shown by the `Has Issues` status.
+11. Click `Build MZP`.
 
 The package will be created in the output folder. By default, that is:
 
@@ -45,11 +46,15 @@ The package will be created in the output folder. By default, that is:
 
 The folder that contains `maxpkg-packager.ms` is treated as the package root.
 
+After downloading and extracting the MaxPkg repository, copy `maxpkg-packager.ms` into the folder of the project you want to package. If the project needs the optional installer or uninstaller, copy `_install.ms`, `_uninstall.ms`, or both into that same folder.
+
 Example:
 
 ```text
 MyTool\
   maxpkg-packager.ms
+  _install.ms          optional
+  _uninstall.ms        optional
   main.ms
   helpers\
     ui.ms
@@ -57,27 +62,27 @@ MyTool\
     presets.json
 ```
 
-Keep one copy of `maxpkg-packager.ms` inside each project you package. This keeps the project settings, changelog, icon, and optional install scripts nicely separated.
+Keep one copy of `maxpkg-packager.ms` inside each project you package. This keeps the project settings, changelog, icon, and optional hooks nicely separated.
 
-## Files Created By The Packager
+## Project Support Files
 
-The packager may create these files next to `maxpkg-packager.ms`:
+The project folder may contain these support files next to `maxpkg-packager.ms`:
 
 - `maxpkg-packager.ini` - saved project settings.
 - `maxpkg-changelog.ini` - changelog entries, grouped by version.
 - `maxpkg-icon.svg` - the selected icon copied into the project root.
-- `install.ms` - optional install hook if you create the sample.
-- `uninstall.ms` - optional uninstall hook if you create the sample.
+- `_install.ms` - optional installer hook that you copy from this repository when needed.
+- `_uninstall.ms` - optional uninstaller hook that you copy from this repository when needed.
 - `dist\*.mzp` - built package archives.
 
-You do not need to add `maxpkg-packager.ini` or `maxpkg-changelog.ini` manually. The packager handles its own internal files.
+The packager creates and maintains its INI, changelog, icon, and output files. It does not create the optional hooks; copy those templates into the project yourself when needed.
 
 ## Interface Overview
 
 The packager uses four tabs:
 
 - `1. Info` - package identity, description, developer, and license.
-- `2. Setup` - macro button, toolbar metadata, and sample install scripts.
+- `2. Setup` - macro button, toolbar metadata, and optional hook status.
 - `3. Files` - output folder, SVG icon, package files, and entry file.
 - `4. Release` - version, release date, 3ds Max version, channel, and changelog.
 
@@ -135,7 +140,7 @@ Pasting over an existing GUID shows a warning first.
 
 A short description of your package.
 
-This field is required and is written into the manifest. It is also shown by the sample install window.
+This field is required and is written into the manifest. It is also shown by the optional installer window.
 
 ### Developer Name
 
@@ -195,19 +200,23 @@ This saves toolbar metadata into the manifest.
 
 If MaxPkg is loaded during installation, the installer tries to refresh the toolbar automatically.
 
-### Sample install.ms
+### Standard MaxPkg Installer Hooks
 
-Creates a sample `install.ms` in the project root if it does not already exist.
+The repository includes the standard MaxPkg `_install.ms` and `_uninstall.ms` files. Copy either file next to `maxpkg-packager.ms` when you want its installation or removal interface in your package. Leave it out when you do not need that interface.
 
-The sample install script shows an `Install Complete` window with useful package information from the manifest, including version, release date, description, and the latest changelog.
+The Setup tab shows each hook in green when its file is available and gray when it is not. Detected hooks are included automatically, so you do not need to add them to the Files List.
 
-You can keep the sample as-is or replace it with your own install code.
+When MaxPkg Packager updates itself, it also downloads the latest copy of each hook that already exists in the project root. Missing hooks are not created automatically.
 
-### Sample uninstall.ms
+`_install.ms` provides a standalone installation window with the package icon, name, version, developer, current-version changelog, and an optional `Developer site` link. You can open it from the project folder to preview the interface. In preview mode, clicking `Install` does not install, change, or delete anything. Closing an actual extracted installer before confirmation removes only its verified `$temp\<GUID>` package folder.
 
-Creates a sample `uninstall.ms` in the project root if it does not already exist.
+`_uninstall.ms` provides a matching standalone removal window. When opened from a project folder, its button also works only as a preview and cannot remove project files.
 
-The sample uninstall script only shows a simple message that the package has been removed. You can replace it with your own uninstall code if needed.
+Use these files as the MaxPkg installation interface. Do not make `_install.ms` or `_uninstall.ms` launch an older author installer, and do not include the old installer as a fallback. The packaged script must run directly from its MaxPkg package folder after installation.
+
+When adapting an existing project, inspect its old installer only to learn which files and setup steps the script requires. Add required runtime files to the Files List, configure macro buttons through the packager, and update fragile file paths to resolve relative to the running script. Keep the tool's features and user settings, but replace its old installation method with MaxPkg.
+
+Only `_install.ms` and `_uninstall.ms` are detected and included automatically.
 
 ## 3. Files
 
@@ -446,8 +455,8 @@ manifest.json
 maxpkg-changelog.ini
 mzp.run
 mzp.run.ms
-install.ms          optional
-uninstall.ms        optional
+_install.ms         optional
+_uninstall.ms       optional
 icons\icon.svg
 <your package files>
 ```
@@ -456,7 +465,7 @@ icons\icon.svg
 
 `mzp.run` is the native 3ds Max MZP command file.
 
-`mzp.run.ms` runs during installation. It reads the manifest, creates the optional main macro button, creates any extra macro buttons, installs the icon, runs `install.ms` if it exists, and notifies MaxPkg when possible.
+`mzp.run.ms` runs during installation. It reads the manifest, creates the optional main macro button, creates any extra macro buttons, installs the icon, runs `_install.ms` if it exists, and notifies MaxPkg when possible. `_uninstall.ms` is recorded in the manifest for package removal.
 
 ## Testing The Package
 
@@ -468,7 +477,7 @@ In 3ds Max:
 2. If you enabled the macro button, check that it appears in the `MaxPkg` category.
 3. Click the generated button and make sure your entry file runs.
 4. Check that the icon appears correctly.
-5. If you created `install.ms`, make sure the install message looks right.
+5. If you included `_install.ms`, make sure the install window looks right.
 
 ## Publishing On maxpkg.dev
 
@@ -489,6 +498,8 @@ The submitted file will be reviewed before it appears on the website.
 ## Updates
 
 The packager checks for updates when it starts.
+
+Update downloads run in the background. If the standard `.NET` download is unavailable, the packager automatically tries `curl.exe` when it is available on the system.
 
 You can also open `About` and click:
 

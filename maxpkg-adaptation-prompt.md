@@ -1,62 +1,78 @@
-﻿# MaxPkg Adaptation Prompt
+# MaxPkg Adaptation Prompt
 
-Use this prompt when you want Codex to adapt an existing 3ds Max script or project for MaxPkg packaging while preserving the original installation behavior.
+Use this prompt when you want Codex to adapt an existing 3ds Max script or project to the standard MaxPkg installation flow.
 
 ```text
-Adapt this 3ds Max script/project for MaxPkg packaging without breaking the original installation logic.
+Adapt this existing 3ds Max script/project for installation and distribution through MaxPkg.
 
 Reference:
-Use the MaxPkg Packager project as the compatibility reference:
+Use the MaxPkg Packager project, its documentation, and its standard installer files as the compatibility reference:
 https://github.com/maxpkg-dev/max-dev-tool
 
 Goal:
-The script must work in two installation modes:
+Replace the author's installation flow with the standard MaxPkg installation flow. Preserve the tool's runtime behavior, features, settings, and user data, but do not preserve, execute, chain, or package the author's installer or uninstaller.
 
-1. MaxPkg mode:
-   If MaxPkg Runtime is available during installation, the package should install cleanly as a MaxPkg package.
-   MaxPkg should be notified after installation, so it can scan the package, rebuild its toolbar, and update the manager UI.
+Installation policy:
+- MaxPkg is the only supported installation system for the adapted package.
+- Use the standard MaxPkg `_install.ms` and `_uninstall.ms` files without replacing their implementation with the author's installer code.
+- Do not call the author's installer or uninstaller with `fileIn`, `include`, `execute`, shell commands, or any other mechanism.
+- Do not add a standalone fallback installation mode.
+- Do not add `MaxPkg == undefined` branches that run the author's installation logic.
+- Do not include obsolete author installer launchers in the package.
+- Do not duplicate work already performed by `mzp.run.ms`, including MaxPkg notification, package icon installation, and generated macro creation.
 
-2. Standalone/original mode:
-   If MaxPkg Runtime is not available, the script must continue to install exactly as the original author intended.
-   Do not remove, bypass, or rewrite the original install behavior unless it is strictly required for compatibility.
+Migration process:
+1. Read the complete project before editing.
+2. Identify the runtime entry file, supporting scripts, icons, resources, settings, macros, startup files, and the original install/uninstall scripts.
+3. Inspect the original installer only to understand which files and setup steps the tool previously required. Never use it as part of the final installation flow.
+4. Classify every original installer action:
+   - Package file deployment: add the required files to the MaxPkg Files List and preserve their relative layout.
+   - Macro or toolbar creation: configure the main button and extra macros through MaxPkg Packager.
+   - Icon installation: use the package SVG icon and MaxPkg-generated macro handling.
+   - Runtime initialization: move essential initialization into the runtime entry code or a focused helper loaded by the entry code.
+   - User settings: initialize them lazily in an appropriate writable 3ds Max user folder. Preserve existing settings during updates.
+   - Obsolete installation-only work: remove it.
+5. Make the packaged runtime fully usable immediately after the standard MaxPkg installation completes.
 
-Rules:
-- Read the project first before editing.
-- Identify the original entry file, install script, uninstall script, macroscript files, icons, and any user folders used by the script.
-- Preserve the original install/uninstall behavior.
-- Add MaxPkg compatibility as a wrapper or additional path, not as a replacement for the author's logic.
-- Do not assume MaxPkg exists.
-- Always guard MaxPkg calls:
+Paths and package layout:
+- MaxPkg extracts a package into `$temp\<packageGuid>`. Treat that folder as the package runtime root.
+- Review all author scripts for hardcoded paths, assumptions about the original source folder, and fragile relative file access.
+- Resolve files relative to the script that owns them, for example:
 
-  try (
-      if (MaxPkg != undefined and isProperty MaxPkg #packageInstalled) do (
-          MaxPkg.packageInstalled packageGuid
-      )
-  ) catch()
+  local scriptDir = getFilenamePath (getThisScriptFileName())
+  local helperFilePath = scriptDir + "helpers\\tool-helper.ms"
 
-- If the original installer creates macros, toolbar buttons, icons, user files, startup scripts, or copies files into 3ds Max folders, keep that behavior for standalone mode.
-- If MaxPkg mode handles part of the installation, make sure the original fallback still works when MaxPkg is missing.
-- MaxPkg packages are extracted into a temporary package folder, usually `$temp\<packageGuid>`. This can break scripts that assume they are running from the original source folder or from a fixed install folder.
-- Review author scripts for fragile path logic, hardcoded project paths, and relative file access.
-- When a script needs to load files next to itself, prefer dynamic script-local paths, for example: local scriptDir = getFilenamePath (getThisScriptFileName())
+- If `getThisScriptFileName()` is unreliable in a specific execution context, use the safest context-appropriate equivalent, such as `getSourceFileName()`.
+- Use `getDir` locations only for data that genuinely belongs in a 3ds Max user folder, such as settings or user-generated data.
+- Do not hardcode a package GUID, a user name, a 3ds Max version, `$temp` subfolder, drive letter, or machine-specific absolute path.
+- Preserve relative subfolders unless a MaxPkg Build Path Remap is intentionally configured.
+- Make sure paths still work after `.ms` files are compiled to `.mse` and after Build Path Remap is applied.
 
-- If `getThisScriptFileName()` is not reliable in a specific context, use the safest equivalent for that context, such as `getSourceFileName()` inside loaded installer scripts.
-- Update path handling only where needed for package compatibility. Do not rewrite unrelated author logic.
-- Do not hardcode user-specific paths.
-- Use getDir paths where appropriate, such as #userMacros, #userIcons, #userStartupScripts, #scripts, #temp.
-- Keep package files relative to the project root where possible.
-- Do not generate destructive uninstall behavior unless the original project already had it.
-- Do not delete user settings during update/install unless the original script explicitly does so.
-- If a file is optional, do not show errors when it is missing.
-- If changing macroScript generation, make sure icon paths are valid for the current 3ds Max profile.
-- SVG icons should be copied to getDir #userIcons when needed.
-- Make the final package installable by MaxPkg, but also runnable without MaxPkg.
+Runtime requirements:
+- Preserve the author's actual tool behavior, not the author's installation method.
+- The selected entry file must launch the tool directly from the installed MaxPkg package without first running the old installer.
+- Required resources must be included in the package and resolved dynamically.
+- Optional files must remain optional and must not produce errors when absent.
+- Do not delete or overwrite existing user settings during installation or update.
+- Do not introduce destructive uninstall behavior copied from the author's uninstaller.
+- Use the MaxPkg Packager for the main macro, extra macros, button labels, SVG icon, changelog, version metadata, and Build Path Remap.
+- The package SVG icon must be square.
+
+Validation:
+- Confirm that no code path can launch the author's installer or uninstaller.
+- Confirm that author installer files are not included in the final Files List or archive.
+- Confirm that the entry file and every generated macro work from `$temp\<packageGuid>`.
+- Confirm that required resources use dynamic paths.
+- Confirm that a clean MaxPkg installation works without any previous installation of the tool.
+- Confirm that updating the package preserves user settings.
+- Build and test the MZP in 3ds Max before considering the adaptation complete.
 
 Expected output:
-- Explain what the original installer does.
-- Explain what changes were made for MaxPkg compatibility.
-- List any files that were added or changed.
-- Mention any assumptions.
+- Explain what the original installer used to do.
+- Explain how each required action is now handled by MaxPkg or by the adapted runtime code.
+- List all files added, changed, excluded, or replaced.
+- Identify any original installer behavior that was intentionally removed.
+- Report the validation and test results.
+- Mention assumptions or remaining risks.
 - Do not commit or push changes.
 ```
-
