@@ -45,6 +45,34 @@
         return (maxPkgUninstallNormalizeFolder packageFolder) == (maxPkgUninstallNormalizeFolder expectedFolder)
     )
 
+    fn maxPkgUninstallDirectoryExists folderPath = (
+        if (folderPath == undefined or folderPath == "") do return false
+
+        try (
+            return (dotNetClass "System.IO.Directory").Exists folderPath
+        ) catch (
+            return false
+        )
+    )
+
+    fn maxPkgUninstallDeletePackageFolder packageFolder manifestFilePath = (
+        if (not (maxPkgUninstallIsSafeTempFolder packageFolder manifestFilePath)) do return false
+
+        local verifiedPackageFolder = maxPkgUninstallNormalizeFolder packageFolder
+        if (not (maxPkgUninstallDirectoryExists verifiedPackageFolder)) do return true
+
+        local deleteCommand = "rmdir /s /q \"" + verifiedPackageFolder + "\""
+        local commandExitCode = -1
+
+        try (
+            HiddenDOSCommand deleteCommand startpath: (getDir #temp) exitCode: &commandExitCode
+        ) catch (
+            return false
+        )
+
+        return commandExitCode == 0 and not (maxPkgUninstallDirectoryExists verifiedPackageFolder)
+    )
+
     fn maxPkgUninstallStartsWith sourceContent prefixContent = (
         if (sourceContent == undefined or prefixContent == undefined) do return false
 
@@ -52,6 +80,67 @@
         local prefixString = prefixContent as string
         if (sourceString.count < prefixString.count) do return false
         return (substring sourceString 1 prefixString.count) == prefixString
+    )
+
+    fn maxPkgUninstallEnsureTrailingSlash folderPath = (
+        if (folderPath == undefined or folderPath == "") do return ""
+        if ((substring folderPath folderPath.count 1) == "\\") do return folderPath
+        return folderPath + "\\"
+    )
+
+    fn maxPkgUninstallDeleteFile ownedFilePath = (
+        if (ownedFilePath == undefined or ownedFilePath == "") do return false
+        if (not (doesFileExist ownedFilePath)) do return true
+
+        try (
+            setFileAttribute ownedFilePath #readOnly false
+            deleteFile ownedFilePath
+            return not (doesFileExist ownedFilePath)
+        ) catch (
+            return false
+        )
+    )
+
+    fn maxPkgUninstallMacroBelongsToPackage macroFilePath packageGuid = (
+        if (macroFilePath == undefined or macroFilePath == "") do return false
+        if (not (maxPkgUninstallIsGuid packageGuid)) do return false
+
+        local normalizedGuid = toLower packageGuid
+        local macroFileName = toLower (filenameFromPath macroFilePath)
+        local generatedFilePrefix = "maxpkg-" + normalizedGuid
+        if (maxPkgUninstallStartsWith macroFileName generatedFilePrefix) do return true
+
+        try (
+            local macroFileContent = toLower ((dotNetClass "System.IO.File").ReadAllText macroFilePath)
+            return (findString macroFileContent ("-- package guid: " + normalizedGuid)) != undefined
+        ) catch (
+            return false
+        )
+    )
+
+    fn maxPkgUninstallRemovePackage packageFolder manifestFilePath packageGuid = (
+        if (not (maxPkgUninstallIsSafeTempFolder packageFolder manifestFilePath)) do return false
+        if (not (maxPkgUninstallIsGuid packageGuid)) do return false
+
+        local isRemovalSuccessful = true
+        local userMacrosFolder = maxPkgUninstallEnsureTrailingSlash (getDir #userMacros)
+        local userIconsFolder = maxPkgUninstallEnsureTrailingSlash (getDir #userIcons)
+        local userMacroFiles = try (getFiles (userMacrosFolder + "*.mcr")) catch(#())
+
+        for macroFilePath in userMacroFiles do (
+            if (maxPkgUninstallMacroBelongsToPackage macroFilePath packageGuid) do (
+                if (not (maxPkgUninstallDeleteFile macroFilePath)) do isRemovalSuccessful = false
+            )
+        )
+
+        local installedIconFilePath = userIconsFolder + packageGuid + ".svg"
+        if (not (maxPkgUninstallDeleteFile installedIconFilePath)) do isRemovalSuccessful = false
+
+        if isRemovalSuccessful do (
+            isRemovalSuccessful = maxPkgUninstallDeletePackageFolder packageFolder manifestFilePath
+        )
+
+        return isRemovalSuccessful
     )
 
     fn maxPkgUninstallEscapeHtml sourceContent = (
@@ -124,6 +213,7 @@
     fn maxPkgUninstallLucideSvg iconId = (
         case iconId of (
             "circle-check": return "<svg class='ui-icon' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'><circle cx='12' cy='12' r='10'/><path d='m9 12 2 2 4-4'/></svg>"
+            "circle-x": return "<svg class='ui-icon' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'><circle cx='12' cy='12' r='10'/><path d='m15 9-6 6'/><path d='m9 9 6 6'/></svg>"
             "info": return "<svg class='ui-icon' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'><circle cx='12' cy='12' r='10'/><line x1='12' y1='16' x2='12' y2='12'/><line x1='12' y1='8' x2='12.01' y2='8'/></svg>"
             "trash-2": return "<svg class='ui-icon' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'><polyline points='3 6 5 6 21 6'/><path d='M19 6l-1 14H6L5 6m3 0V4h8v2'/><line x1='10' y1='11' x2='10' y2='17'/><line x1='14' y1='11' x2='14' y2='17'/></svg>"
             "x": return "<svg class='ui-icon' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'><line x1='18' y1='6' x2='6' y2='18'/><line x1='6' y1='6' x2='18' y2='18'/></svg>"
@@ -143,6 +233,7 @@
     local isSafeTempPackageFolder = maxPkgUninstallIsSafeTempFolder scriptDir manifestFilePath
 
     if (MaxPkg == undefined) do (
+        local packageGuid = maxPkgUninstallReadSetting manifestFilePath settingsFilePath "packageGuid" "packageGuid" fallbackContent: ""
         local packageTitle = maxPkgUninstallReadSetting manifestFilePath settingsFilePath "name" "packageName" fallbackContent: "Package"
         local packageVersion = maxPkgUninstallReadSetting manifestFilePath settingsFilePath "version" "version" fallbackContent: "1.0.0"
         local developerTitle = maxPkgUninstallReadSetting manifestFilePath settingsFilePath "developerName" "developerName" fallbackContent: "Unknown developer"
@@ -156,6 +247,7 @@
         local packageIconFilePath = maxPkgUninstallResolveIconFile scriptDir packageIconRel
         local packageIconDataUri = maxPkgUninstallImageDataUri packageIconFilePath
         local isRemovalConfirmed = false
+        local isRemovalFailed = false
 
         fn buildUninstallerHtml = (
             local escapedPackageTitle = maxPkgUninstallEscapeHtml packageTitle
@@ -167,7 +259,7 @@
             local resourceLinksMarkup = ""
             local contentMarkup = ""
             local actionMarkup = ""
-            local bodyClass = if isRemovalConfirmed then "result-state" else "confirm-state"
+            local bodyClass = if (isRemovalConfirmed or isRemovalFailed) then "result-state" else "confirm-state"
 
             if (packageIconDataUri != "") do iconMarkup = "<img src='" + packageIconDataUri + "' alt='Package icon'>"
             if (maxPkgUninstallIsWebAddress homepageUrl) do resourceLinksMarkup += "<a class='resource-link' href='" + (maxPkgUninstallEscapeHtml homepageUrl) + "'>" + (maxPkgUninstallLucideSvg "home") + "Developer site</a>"
@@ -177,7 +269,10 @@
             if (maxPkgUninstallIsWebAddress purchaseUrl) do resourceLinksMarkup += "<a class='resource-link purchase-link' href='" + (maxPkgUninstallEscapeHtml purchaseUrl) + "'>" + (maxPkgUninstallLucideSvg "shopping-cart") + (maxPkgUninstallEscapeHtml purchaseButtonLabel) + "</a>"
             if (resourceLinksMarkup != "") do resourceLinksMarkup = "<nav class='resource-links'>" + resourceLinksMarkup + "</nav>"
 
-            if isRemovalConfirmed then (
+            if isRemovalFailed then (
+                contentMarkup = "<section class='status-card error-card'><div class='status-mark'>" + (maxPkgUninstallLucideSvg "circle-x") + "</div><div><h2>Removal could not be completed.</h2><p>Close 3ds Max tools that use this package and try again.</p></div></section>"
+                actionMarkup = "<a class='secondary-button' href='maxpkg://close'>" + (maxPkgUninstallLucideSvg "x") + "Close</a><a class='danger-button' href='maxpkg://uninstall'>" + (maxPkgUninstallLucideSvg "trash-2") + "Try Again</a>"
+            ) else if isRemovalConfirmed then (
                 if isSafeTempPackageFolder then (
                     contentMarkup = "<section class='status-card success-card'><div class='status-mark'>" + (maxPkgUninstallLucideSvg "circle-check") + "</div><h2>" + escapedPackageTitle + " has been completely removed.</h2></section>"
                 ) else (
@@ -196,7 +291,7 @@
 
             local htmlContent = "<!doctype html><html><head><meta charset='utf-8'><meta http-equiv='X-UA-Compatible' content='IE=edge'><style>" +
                 "*{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#20242a;color:#f4f6f8;font-family:'Segoe UI',Arial,sans-serif;font-size:14px}body{padding:5px 10px 10px}.uninstaller{height:100%;display:flex;flex-direction:column}.hero{display:flex;flex:0 0 auto;align-items:center;padding:12px 15px;background:#2d333b;border:1px solid #434b56;border-radius:8px}.package-icon{width:100px;height:100px;min-width:100px;margin-right:17px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#242930;border:1px solid #4b5664;border-radius:8px}.package-icon img{display:block;width:92px;height:92px}.icon-fallback{font-size:30px;font-weight:700;color:#9ebcf4}.package-meta{min-width:0}.ui-icon{display:inline-block;width:15px;height:15px;margin-right:7px;vertical-align:-3px}.developer-link .ui-icon{width:14px;height:14px}.eyebrow{margin-bottom:8px;color:#91a0b3;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px}.package-meta h1{margin:0 0 9px;font-size:23px;line-height:1.2;overflow-wrap:break-word}.package-version{color:#b9c3d0}.separator{padding:0 7px;color:#657182}.preview-badge{display:inline-block;margin-left:10px;padding:3px 8px;border:1px solid #9d7834;border-radius:10px;color:#f2c66f;font-size:11px;text-transform:uppercase}.actions{display:flex;flex:0 0 auto;align-items:center;justify-content:space-between;min-height:50px;padding:7px 1px}.button-row{display:flex;align-items:center}.button-row a{margin-left:8px}.developer-link{color:#9ebdf4;text-decoration:none}.developer-link:hover{text-decoration:underline}.secondary-button,.danger-button{display:inline-block;min-width:112px;padding:10px 18px;border-radius:5px;color:#fff;font-weight:700;text-align:center;text-decoration:none}.secondary-button{border:1px solid #687586;background:#414953}.secondary-button:hover{background:#4c5662}.danger-button{border:1px solid #df7180;background:#a94552}.danger-button:hover{background:#bd5260}.remove-card,.status-card{flex:1 1 auto;min-height:0;padding:17px 19px;background:#2a2f36;border:1px solid #404853;border-radius:8px}.section-label{margin-bottom:4px;color:#ff7b89;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px}.remove-card h2,.status-card h2{margin:0 0 8px;font-size:18px}.remove-card p,.status-card p{margin:0;color:#cbd3dc;line-height:1.5}.warning-note{margin-top:16px;padding:11px 13px;border-left:3px solid #ff6b7a;background:#343038}.warning-note strong,.warning-note span{display:block}.warning-note span{margin-top:3px;color:#bfc7d1;font-size:12px}.status-card{display:flex;align-items:center}.success-card{background:#203a2c;border-color:#397654}.preview-card{background:#3a3222;border-color:#826530}.status-mark{width:44px;height:44px;min-width:44px;margin-right:15px;display:flex;align-items:center;justify-content:center}.status-mark .ui-icon{width:40px;height:40px;margin:0}.success-card .status-mark{color:#57bd91}.preview-card .status-mark{color:#f7b955}.status-card h2{margin:0}" +
-                ".resource-links{display:flex;flex:0 0 auto;align-items:center;flex-wrap:wrap;padding:5px 0 1px}.resource-link{margin-right:5px;padding:4px 7px;border-radius:4px;color:#9ebdf4;font-size:11px;text-decoration:none}.resource-link:hover{background:#303741}.resource-link .ui-icon{width:13px;height:13px;margin-right:5px}.purchase-link{color:#57bd91}.actions{justify-content:flex-end;min-height:46px;padding:5px 1px}.status-card{flex:0 0 auto;min-height:90px;padding:14px 18px}" +
+                ".resource-links{display:flex;flex:0 0 auto;align-items:center;flex-wrap:wrap;padding:5px 0 1px}.resource-link{margin-right:5px;padding:4px 7px;border-radius:4px;color:#9ebdf4;font-size:11px;text-decoration:none}.resource-link:hover{background:#303741}.resource-link .ui-icon{width:13px;height:13px;margin-right:5px}.purchase-link{color:#57bd91}.actions{justify-content:flex-end;min-height:46px;padding:5px 1px}.status-card{flex:0 0 auto;min-height:90px;padding:14px 18px}.error-card{background:#42262b;border-color:#8f4550}.error-card .status-mark{color:#ff6b7a}" +
                 "</style></head><body class='" + bodyClass + "'><div class='uninstaller'>" + pageMarkup + "</div></body></html>"
 
             return htmlContent
@@ -215,7 +310,17 @@
 
             fn showUninstalledState = (
                 isRemovalConfirmed = true
+                isRemovalFailed = false
                 MaxPkgOptionalUninstallRollout.title = if isSafeTempPackageFolder then "Uninstall Complete" else "Uninstaller Preview"
+                try (setDialogSize MaxPkgOptionalUninstallRollout [500, 320]) catch()
+                refreshUninstallerBrowser()
+                return true
+            )
+
+            fn showUninstallFailedState = (
+                isRemovalConfirmed = false
+                isRemovalFailed = true
+                MaxPkgOptionalUninstallRollout.title = "Uninstall Failed"
                 try (setDialogSize MaxPkgOptionalUninstallRollout [500, 320]) catch()
                 refreshUninstallerBrowser()
                 return true
@@ -237,7 +342,11 @@
 
                 if (maxPkgUninstallStartsWith normalizedAddress "maxpkg://uninstall") then (
                     navigationArgs.Cancel = true
-                    showUninstalledState()
+                    if isSafeTempPackageFolder then (
+                        if (maxPkgUninstallRemovePackage scriptDir manifestFilePath packageGuid) then showUninstalledState() else showUninstallFailedState()
+                    ) else (
+                        showUninstalledState()
+                    )
                 ) else if (maxPkgUninstallStartsWith normalizedAddress "maxpkg://close") then (
                     navigationArgs.Cancel = true
                     destroyDialog MaxPkgOptionalUninstallRollout

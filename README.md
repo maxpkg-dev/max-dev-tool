@@ -210,7 +210,7 @@ When MaxPkg Packager updates itself, it also downloads the latest copy of each h
 
 `_install.ms` provides a standalone installation window with the package icon, name, version, developer, current-version changelog, and an optional `Developer site` link. You can open it from the project folder to preview the interface. In preview mode, clicking `Install` does not install, change, or delete anything. Closing an actual extracted installer before confirmation removes only its verified `$temp\<GUID>` package folder.
 
-`_uninstall.ms` provides a matching standalone removal window. When opened from a project folder, its button also works only as a preview and cannot remove project files.
+`_uninstall.ms` provides a matching standalone removal window. During a real uninstall, it removes the verified `$temp\<GUID>` package folder, the package-generated macro files from the current 3ds Max user profile, and the installed SVG icon. When opened from a project folder, its button works only as a preview and cannot remove project files.
 
 Use these files as the MaxPkg installation interface. Do not make `_install.ms` or `_uninstall.ms` launch an older author installer, and do not include the old installer as a fallback. The packaged script must run directly from its MaxPkg package folder after installation.
 
