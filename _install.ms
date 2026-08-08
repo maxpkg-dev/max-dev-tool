@@ -3,6 +3,9 @@
 	ADVANCED CUSTOM INSTALLER OVERRIDE
 
 	Most packages should use this standard MaxPkg installer unchanged.
+	For focused project-specific setup, select a separate Custom Install Script
+	in MaxPkg Packager. It will run safely from the extracted package folder.
+
 	Advanced authors may replace the installer body inside the existing
 	if (MaxPkg == undefined) block with their own installation code.
 
@@ -62,6 +65,28 @@
         local prefixString = prefixContent as string
         if (sourceString.count < prefixString.count) do return false
         return (substring sourceString 1 prefixString.count) == prefixString
+    )
+
+    fn maxPkgHookRunCustomScript packageFolder manifestFilePath manifestKey = (
+        if (not (maxPkgHookIsSafeTempPackageFolder packageFolder manifestFilePath)) do return false
+
+        local relativeScriptFile = getINISetting manifestFilePath "package" manifestKey
+        if (relativeScriptFile == undefined or relativeScriptFile == "") do return true
+        if ((toLower (getFilenameType relativeScriptFile)) != ".ms") do return false
+
+        try (
+            local ioPathClass = dotNetClass "System.IO.Path"
+            local packageRoot = maxPkgHookNormalizeFolder (ioPathClass.GetFullPath packageFolder)
+            local resolvedScriptFile = maxPkgHookNormalizeFolder (ioPathClass.GetFullPath (packageFolder + relativeScriptFile))
+            local packagePrefix = packageRoot + "\\"
+
+            if (not (maxPkgHookStartsWith resolvedScriptFile packagePrefix)) do return false
+            if (not (doesFileExist resolvedScriptFile)) do return false
+            fileIn resolvedScriptFile
+            return true
+        ) catch (
+            return false
+        )
     )
 
     fn maxPkgHookEscapeHtml sourceContent = (
@@ -168,6 +193,19 @@
     local manifestFilePath = scriptDir + "manifest.ini"
     local settingsFilePath = scriptDir + "maxpkg-packager.ini"
     local isSafeTempPackageFolder = maxPkgHookIsSafeTempPackageFolder scriptDir manifestFilePath
+    local isCustomInstallComplete = false
+
+    fn runCustomInstallScript = (
+        if isCustomInstallComplete do return true
+        if (not isSafeTempPackageFolder) do return false
+
+        isCustomInstallComplete = maxPkgHookRunCustomScript scriptDir manifestFilePath "customInstallScript"
+        return isCustomInstallComplete
+    )
+
+    if (MaxPkg != undefined and isSafeTempPackageFolder) do (
+        if (not (runCustomInstallScript())) do throw "The custom install script could not be completed."
+    )
 
     if (MaxPkg == undefined) do (
         local changelogFilePath = scriptDir + "maxpkg-changelog.ini"
@@ -315,7 +353,15 @@
 
                 if (maxPkgHookStartsWith normalizedAddress "maxpkg://primary") then (
                     navigationArgs.Cancel = true
-                    if isInstallConfirmed then destroyDialog MaxPkgOptionalInstallRollout else showInstalledState()
+                    if isInstallConfirmed then (
+                        destroyDialog MaxPkgOptionalInstallRollout
+                    ) else if (not isSafeTempPackageFolder) then (
+                        showInstalledState()
+                    ) else if (runCustomInstallScript()) then (
+                        showInstalledState()
+                    ) else (
+                        messageBox "The custom install script could not be completed. The package was left in place so you can try again." title: "Installation Error"
+                    )
                 ) else if (maxPkgHookStartsWith normalizedAddress "maxpkg://uninstall") then (
                     navigationArgs.Cancel = true
                     if (doesFileExist uninstallHookFilePath) do (

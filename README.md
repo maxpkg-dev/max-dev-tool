@@ -206,13 +206,24 @@ The repository includes the standard MaxPkg `_install.ms` and `_uninstall.ms` fi
 
 The Setup tab shows each hook in green when its file is available and gray when it is not. Detected hooks are included automatically, so you do not need to add them to the Files List.
 
+When a standard hook is ready, you may also choose a focused custom script:
+
+- `Custom Install Script` runs at the end of package installation.
+- `Custom Uninstall Script` runs before MaxPkg removes the package files.
+
+Use these scripts only for project-specific actions that MaxPkg cannot infer, such as registering or removing callbacks. Each custom script must be a `.ms` file inside the project folder. The packager includes it automatically, writes its packaged location to the manifest, and applies Build Path Remap when necessary.
+
+Keep custom scripts focused and non-interactive. A custom uninstall script must finish its cleanup before MaxPkg removes the package folder; short timer-based cleanup is supported, but it should not wait for additional user input.
+
+Do not add a selected custom script to the Files List. If the same file is selected in Setup and is also present in the Files List, validation reports the conflict and blocks the build.
+
 When MaxPkg Packager updates itself, it also downloads the latest copy of each hook that already exists in the project root. Missing hooks are not created automatically.
 
 `_install.ms` provides a standalone installation window with the package icon, name, version, developer, current-version changelog, and an optional `Developer site` link. You can open it from the project folder to preview the interface. In preview mode, clicking `Install` does not install, change, or delete anything. Closing an actual extracted installer before confirmation removes only its verified `$temp\<GUID>` package folder.
 
 `_uninstall.ms` provides a matching standalone removal window. During a real uninstall, it removes the verified `$temp\<GUID>` package folder, the package-generated macro files from the current 3ds Max user profile, and the installed SVG icon. When opened from a project folder, its button works only as a preview and cannot remove project files.
 
-Use these files as the MaxPkg installation interface. Do not make `_install.ms` or `_uninstall.ms` launch an older author installer, and do not include the old installer as a fallback. The packaged script must run directly from its MaxPkg package folder after installation.
+Use these files as the MaxPkg installation interface. Do not replace them with an older author installer or include the old installer as a fallback. If the project needs a small amount of additional setup or cleanup, move only those required actions into the matching custom script selected in Setup. The packaged script must run directly from its MaxPkg package folder after installation.
 
 When adapting an existing project, inspect its old installer only to learn which files and setup steps the script requires. Add required runtime files to the Files List, configure macro buttons through the packager, and update fragile file paths to resolve relative to the running script. Keep the tool's features and user settings, but replace its old installation method with MaxPkg.
 
@@ -457,6 +468,8 @@ mzp.run
 mzp.run.ms
 _install.ms         optional
 _uninstall.ms       optional
+<custom install script>    optional
+<custom uninstall script>  optional
 icons\icon.svg
 <your package files>
 ```
@@ -465,7 +478,7 @@ icons\icon.svg
 
 `mzp.run` is the native 3ds Max MZP command file.
 
-`mzp.run.ms` runs during installation. It reads the manifest, creates the optional main macro button, creates any extra macro buttons, installs the icon, runs `_install.ms` if it exists, and notifies MaxPkg when possible. `_uninstall.ms` is recorded in the manifest for package removal.
+`mzp.run.ms` runs during installation. It reads the manifest, creates the optional main macro button, creates any extra macro buttons, installs the icon, runs `_install.ms` if it exists, and notifies MaxPkg when possible. The standard hooks read the custom script locations from the manifest. `_uninstall.ms` is recorded in the manifest for package removal.
 
 ## Testing The Package
 

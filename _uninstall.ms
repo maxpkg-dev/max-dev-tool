@@ -2,8 +2,11 @@
 
 	OPTIONAL MAXPKG UNINSTALL HOOK
 
-	You may replace the uninstaller body inside the existing
-	if (MaxPkg == undefined) block with your own removal code.
+	For focused project-specific cleanup, select a separate Custom Uninstall
+	Script in MaxPkg Packager. It runs before package files are removed.
+
+	Advanced authors may replace the uninstaller body inside the existing
+	if (MaxPkg == undefined) block with their own removal code.
 
 	Keep destructive actions guarded so previewing this file from a project
 	folder cannot remove project files.
@@ -45,6 +48,56 @@
         return (maxPkgUninstallNormalizeFolder packageFolder) == (maxPkgUninstallNormalizeFolder expectedFolder)
     )
 
+    fn maxPkgUninstallStartsWith sourceContent prefixContent = (
+        if (sourceContent == undefined or prefixContent == undefined) do return false
+
+        local sourceString = sourceContent as string
+        local prefixString = prefixContent as string
+        if (sourceString.count < prefixString.count) do return false
+        return (substring sourceString 1 prefixString.count) == prefixString
+    )
+
+    fn maxPkgUninstallWaitForCustomCleanup waitMilliseconds = (
+        local waitStartedAt = timestamp()
+
+        while ((timestamp() - waitStartedAt) < waitMilliseconds) do (
+            try (windows.processPostedMessages()) catch()
+        )
+
+        return true
+    )
+
+    fn maxPkgUninstallRunCustomScript packageFolder manifestFilePath manifestKey = (
+        if (not (maxPkgUninstallIsSafeTempFolder packageFolder manifestFilePath)) do return false
+
+        local relativeScriptFile = getINISetting manifestFilePath "package" manifestKey
+        local customScriptError = ""
+        local customScriptStage = "resolve custom script"
+        local isCustomScriptComplete = false
+        if (relativeScriptFile == undefined or relativeScriptFile == "") do return true
+        if ((toLower (getFilenameType relativeScriptFile)) != ".ms") do return false
+
+        try (
+            local ioPathClass = dotNetClass "System.IO.Path"
+            local packageRoot = maxPkgUninstallNormalizeFolder (ioPathClass.GetFullPath packageFolder)
+            local resolvedScriptFile = maxPkgUninstallNormalizeFolder (ioPathClass.GetFullPath (packageFolder + relativeScriptFile))
+            local packagePrefix = packageRoot + "\\"
+
+            if (not (maxPkgUninstallStartsWith resolvedScriptFile packagePrefix)) do return false
+            if (not (doesFileExist resolvedScriptFile)) do return false
+            customScriptStage = "execute custom script"
+            fileIn resolvedScriptFile
+            customScriptStage = "wait for custom cleanup"
+            maxPkgUninstallWaitForCustomCleanup 2000
+            isCustomScriptComplete = true
+        ) catch (
+            customScriptError = customScriptStage + ": " + getCurrentException()
+        )
+
+        if (customScriptError != "") do throw customScriptError
+        return isCustomScriptComplete
+    )
+
     fn maxPkgUninstallDirectoryExists folderPath = (
         if (folderPath == undefined or folderPath == "") do return false
 
@@ -71,15 +124,6 @@
         )
 
         return commandExitCode == 0 and not (maxPkgUninstallDirectoryExists verifiedPackageFolder)
-    )
-
-    fn maxPkgUninstallStartsWith sourceContent prefixContent = (
-        if (sourceContent == undefined or prefixContent == undefined) do return false
-
-        local sourceString = sourceContent as string
-        local prefixString = prefixContent as string
-        if (sourceString.count < prefixString.count) do return false
-        return (substring sourceString 1 prefixString.count) == prefixString
     )
 
     fn maxPkgUninstallEnsureTrailingSlash folderPath = (
@@ -231,6 +275,26 @@
     local manifestFilePath = scriptDir + "manifest.ini"
     local settingsFilePath = scriptDir + "maxpkg-packager.ini"
     local isSafeTempPackageFolder = maxPkgUninstallIsSafeTempFolder scriptDir manifestFilePath
+    local isCustomUninstallComplete = false
+    local customUninstallFailureContent = ""
+
+    fn runCustomUninstallScript = (
+        if isCustomUninstallComplete do return true
+        if (not isSafeTempPackageFolder) do return false
+
+        customUninstallFailureContent = ""
+        try (
+            isCustomUninstallComplete = maxPkgUninstallRunCustomScript scriptDir manifestFilePath "customUninstallScript"
+        ) catch (
+            customUninstallFailureContent = getCurrentException()
+            isCustomUninstallComplete = false
+        )
+        return isCustomUninstallComplete
+    )
+
+    if (MaxPkg != undefined and isSafeTempPackageFolder) do (
+        if (not (runCustomUninstallScript())) do throw ("The custom uninstall script could not be completed.\n" + customUninstallFailureContent)
+    )
 
     if (MaxPkg == undefined) do (
         local packageGuid = maxPkgUninstallReadSetting manifestFilePath settingsFilePath "packageGuid" "packageGuid" fallbackContent: ""
@@ -248,6 +312,7 @@
         local packageIconDataUri = maxPkgUninstallImageDataUri packageIconFilePath
         local isRemovalConfirmed = false
         local isRemovalFailed = false
+        local uninstallFailureContent = ""
 
         fn buildUninstallerHtml = (
             local escapedPackageTitle = maxPkgUninstallEscapeHtml packageTitle
@@ -270,7 +335,9 @@
             if (resourceLinksMarkup != "") do resourceLinksMarkup = "<nav class='resource-links'>" + resourceLinksMarkup + "</nav>"
 
             if isRemovalFailed then (
-                contentMarkup = "<section class='status-card error-card'><div class='status-mark'>" + (maxPkgUninstallLucideSvg "circle-x") + "</div><div><h2>Removal could not be completed.</h2><p>Close 3ds Max tools that use this package and try again.</p></div></section>"
+                local escapedFailureContent = maxPkgUninstallEscapeHtml uninstallFailureContent
+                if (escapedFailureContent == "") do escapedFailureContent = "Close 3ds Max tools that use this package and try again."
+                contentMarkup = "<section class='status-card error-card'><div class='status-mark'>" + (maxPkgUninstallLucideSvg "circle-x") + "</div><div><h2>Removal could not be completed.</h2><p>" + escapedFailureContent + "</p></div></section>"
                 actionMarkup = "<a class='secondary-button' href='maxpkg://close'>" + (maxPkgUninstallLucideSvg "x") + "Close</a><a class='danger-button' href='maxpkg://uninstall'>" + (maxPkgUninstallLucideSvg "trash-2") + "Try Again</a>"
             ) else if isRemovalConfirmed then (
                 if isSafeTempPackageFolder then (
@@ -317,9 +384,10 @@
                 return true
             )
 
-            fn showUninstallFailedState = (
+            fn showUninstallFailedState failureContent: "" = (
                 isRemovalConfirmed = false
                 isRemovalFailed = true
+                uninstallFailureContent = failureContent
                 MaxPkgOptionalUninstallRollout.title = "Uninstall Failed"
                 try (setDialogSize MaxPkgOptionalUninstallRollout [500, 320]) catch()
                 refreshUninstallerBrowser()
@@ -343,7 +411,17 @@
                 if (maxPkgUninstallStartsWith normalizedAddress "maxpkg://uninstall") then (
                     navigationArgs.Cancel = true
                     if isSafeTempPackageFolder then (
-                        if (maxPkgUninstallRemovePackage scriptDir manifestFilePath packageGuid) then showUninstalledState() else showUninstallFailedState()
+                        if (runCustomUninstallScript()) then (
+                            if (maxPkgUninstallRemovePackage scriptDir manifestFilePath packageGuid) then (
+                                showUninstalledState()
+                            ) else (
+                                showUninstallFailedState failureContent: "The custom cleanup finished, but MaxPkg could not remove the generated macros, icon, or package folder."
+                            )
+                        ) else (
+                            local customFailureMessage = "The custom uninstall script could not be completed. Package files were not removed."
+                            if (customUninstallFailureContent != "") do customFailureMessage += " Error: " + customUninstallFailureContent
+                            showUninstallFailedState failureContent: customFailureMessage
+                        )
                     ) else (
                         showUninstalledState()
                     )

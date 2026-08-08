@@ -15,7 +15,7 @@ Replace the author's installation flow with the standard MaxPkg installation flo
 Installation policy:
 - MaxPkg is the only supported installation system for the adapted package.
 - Use the standard MaxPkg `_install.ms` and `_uninstall.ms` files without replacing their implementation with the author's installer code.
-- Do not call the author's installer or uninstaller with `fileIn`, `include`, `execute`, shell commands, or any other mechanism.
+- Do not call the author's complete installer or uninstaller with `fileIn`, `include`, `execute`, shell commands, or any other mechanism.
 - Do not add a standalone fallback installation mode.
 - Do not add `MaxPkg == undefined` branches that run the author's installation logic.
 - Do not include obsolete author installer launchers in the package.
@@ -24,13 +24,14 @@ Installation policy:
 Migration process:
 1. Read the complete project before editing.
 2. Identify the runtime entry file, supporting scripts, icons, resources, settings, macros, startup files, and the original install/uninstall scripts.
-3. Inspect the original installer only to understand which files and setup steps the tool previously required. Never use it as part of the final installation flow.
+3. Inspect the original installer only to understand which files and setup steps the tool previously required. Never use the complete legacy installer as part of the final installation flow.
 4. Classify every original installer action:
    - Package file deployment: add the required files to the MaxPkg Files List and preserve their relative layout.
    - Macro or toolbar creation: configure the main button and extra macros through MaxPkg Packager.
    - Icon installation: use the package SVG icon and MaxPkg-generated macro handling.
    - Runtime initialization: move essential initialization into the runtime entry code or a focused helper loaded by the entry code.
    - User settings: initialize them lazily in an appropriate writable 3ds Max user folder. Preserve existing settings during updates.
+   - Essential custom setup or cleanup: extract only the focused actions that MaxPkg cannot perform automatically into small `.ms` scripts, then select them as `Custom Install Script` or `Custom Uninstall Script` in Setup. Examples include registering or removing callbacks.
    - Obsolete installation-only work: remove it.
 5. Make the packaged runtime fully usable immediately after the standard MaxPkg installation completes.
 
@@ -56,11 +57,13 @@ Runtime requirements:
 - Do not delete or overwrite existing user settings during installation or update.
 - Do not introduce destructive uninstall behavior copied from the author's uninstaller.
 - Use the MaxPkg Packager for the main macro, extra macros, button labels, SVG icon, changelog, version metadata, and Build Path Remap.
+- Keep custom install and uninstall scripts inside the project root. Do not add them to the Files List; the packager includes them automatically and records their packaged paths in the manifest.
 - The package SVG icon must be square.
 
 Validation:
-- Confirm that no code path can launch the author's installer or uninstaller.
-- Confirm that author installer files are not included in the final Files List or archive.
+- Confirm that no code path can launch the author's complete installer or uninstaller.
+- Confirm that obsolete author installer files are not included in the final Files List or archive.
+- Confirm that each selected custom script contains only the required additional actions and runs correctly from the installed `$temp\<packageGuid>` folder.
 - Confirm that the entry file and every generated macro work from `$temp\<packageGuid>`.
 - Confirm that required resources use dynamic paths.
 - Confirm that a clean MaxPkg installation works without any previous installation of the tool.
