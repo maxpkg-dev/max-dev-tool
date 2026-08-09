@@ -306,7 +306,7 @@ struct MaxPkgInstallHookData (
         if (maxPkgHookIsWebAddress purchaseUrl) do resourceLinksMarkup += "<a class='resource-link purchase-link' href='" + (maxPkgHookEscapeHtml purchaseUrl) + "'>" + (maxPkgHookLucideSvg "shopping-cart") + (maxPkgHookEscapeHtml purchaseButtonLabel) + "</a>"
         if (resourceLinksMarkup != "") do resourceLinksMarkup = "<nav class='resource-links'>" + resourceLinksMarkup + "</nav>"
 
-        if (doesFileExist uninstallHookFilePath) do (
+        if (not isInstallConfirmed and doesFileExist uninstallHookFilePath) do (
             uninstallMarkup = "<a class='danger-button' href='maxpkg://uninstall'>" + (maxPkgHookLucideSvg "trash-2") + "Uninstall</a>"
         )
 
