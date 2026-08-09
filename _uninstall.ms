@@ -184,9 +184,36 @@ struct MaxPkgUninstallHookData (
             )
         ),
 
+        fn maxPkgUninstallStringLiteral sourceContent = (
+            local literalContent = sourceContent as string
+            literalContent = substituteString literalContent "\\" "\\\\"
+            literalContent = substituteString literalContent "\"" "\\\""
+            return "\"" + literalContent + "\""
+        ),
+
+        fn maxPkgUninstallRemoveQuadMenu packageFolder packageGuid = (
+            local helperFilePath = (maxPkgUninstallEnsureTrailingSlash packageFolder) + "maxpkg-quad.ms"
+            local startupFilePath = (maxPkgUninstallEnsureTrailingSlash (getDir #userStartupScripts)) + "maxpkg-" + packageGuid + "-quad-startup.ms"
+            local isQuadMenuRemoved = true
+
+            if (doesFileExist helperFilePath) do (
+                try (
+                    fileIn helperFilePath
+                    local commandContent = "(MaxPkgQuadMenuManagerData packageFolder: " + (maxPkgUninstallStringLiteral packageFolder) + ").uninstall()"
+                    isQuadMenuRemoved = (execute commandContent) == true
+                ) catch (
+                    isQuadMenuRemoved = false
+                )
+            )
+
+            if isQuadMenuRemoved do isQuadMenuRemoved = maxPkgUninstallDeleteFile startupFilePath
+            return isQuadMenuRemoved
+        ),
+
         fn maxPkgUninstallRemovePackage packageFolder manifestFilePath packageGuid = (
             if (not (maxPkgUninstallIsSafeTempFolder packageFolder manifestFilePath)) do return false
             if (not (maxPkgUninstallIsGuid packageGuid)) do return false
+            if (not (maxPkgUninstallRemoveQuadMenu packageFolder packageGuid)) do return false
 
             local isRemovalSuccessful = true
             local userMacrosFolder = maxPkgUninstallEnsureTrailingSlash (getDir #userMacros)

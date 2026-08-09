@@ -347,7 +347,8 @@ To add an extra macro:
 3. Choose the script file from the dropdown.
 4. Enter the button name.
 5. Enable `Compile .ms to .mse` if needed.
-6. Click `Add`.
+6. Enable `Show in Quad Menu` if the command should also appear in the viewport right-click menu.
+7. Click `Add`.
 
 Extra macro button names may use only:
 
@@ -360,6 +361,8 @@ Spaces are removed internally when the packager creates the technical `macroScri
 If `Compile .ms to .mse` is enabled for an extra macro, the build uses the compiled `.mse` file for that macro. If the same file is also used as the main `Entry File`, the compile option must match in both places.
 
 Extra macros respect `Build Path Remap`. For example, if `COMPILE\tool.ms` is remapped to the package root and used by an extra macro, the generated macro will run `tool.ms` or `tool.mse` from the final package location.
+
+`Show in Quad Menu` supports both the classic 3ds Max menu system and the newer Quad Menu API used by recent 3ds Max versions. MaxPkg creates a small package-specific script in the current 3ds Max user startup folder, so selected commands are restored every time 3ds Max starts. Package uninstall removes both the Quad Menu entries and this startup script.
 
 ## 4. Release
 
