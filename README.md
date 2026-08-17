@@ -6,6 +6,18 @@ Put the packager into the root folder of your script project, run it in 3ds Max,
 
 The script keeps its settings next to your project, so every package can have its own metadata, changelog, icon, and build output.
 
+## AI-Assisted Packaging
+
+These ready-to-use prompts can help prepare an existing 3ds Max project with Codex or Claude Code:
+
+- [MaxPkg Adaptation Prompt](maxpkg-adaptation-prompt.md) - adapt an existing script to the MaxPkg installation flow while preserving its runtime behavior.
+- [MaxPkg Full Onboarding Prompt](maxpkg-full-onboarding-prompt.md) - complete the adaptation, configure MaxPkg Packager, build and verify the package, and prepare the marketplace listing and upload instructions.
+- [Recommended MaxScript Coding Rules](code-rules.md) - practical conventions for safe identifiers, functions, paths, UI code, generated scripts, validation, and maintainable MaxScript.
+
+Use the adaptation prompt when you only need the project code prepared for MaxPkg. Use the full onboarding prompt when you want the AI agent to handle the complete packaging workflow and leave you with a tested `.mzp` plus the content needed for maxpkg.dev.
+
+Share the coding rules with your AI agent before it edits MaxScript so generated code follows safer naming and implementation conventions.
+
 ## Requirements
 
 - Autodesk 3ds Max.
