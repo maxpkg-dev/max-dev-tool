@@ -111,6 +111,8 @@ SVG icon is required (3. Files -> SVG Icon)
 Changelog for version 1.0.0 must contain at least one item (4. Release -> Changelog)
 ```
 
+The log uses the active 3ds Max theme and color-codes complete entries: green for `[OK]`, red for `[ERROR]`, yellow for `[WARNING]`, and blue for informational messages. It keeps the latest 30 entries visible and scrolls to the newest result automatically. The complete in-memory log is still used when deciding whether a build contains errors.
+
 `Build MZP` uses the same status color. If there are issues, it will stay red and the package will not be created.
 
 ## 1. Info
