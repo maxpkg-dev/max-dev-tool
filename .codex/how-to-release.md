@@ -24,11 +24,50 @@ Important: never commit, never push, and never create a git tag for this release
 
 4. Update `VERSION` in `[INFO]`.
 
-5. Add a release notes section before `[SCRIPT]`.
+5. Complete the API synchronization check described below.
 
-6. Tell the user exactly what was changed.
+6. Add a release notes section before `[SCRIPT]`.
 
-7. Stop. Do not commit. Do not push.
+7. Tell the user exactly what was changed, including whether the public API changed.
+
+8. Stop. Do not commit. Do not push.
+
+## API Synchronization Check
+
+Every release must review whether its changes affect the public `MaxPkgPackerApi` contract. Do not prepare a release until the implementation, schema, documentation, and tests agree.
+
+An API update is required when a change adds, removes, renames, validates, persists, or changes the behavior of:
+
+- a package option or its allowed values;
+- Files List operations;
+- changelog operations or changelog types;
+- Build Path Rules;
+- Extra Macros;
+- validation, build, log, save, reload, or GUID behavior;
+- JSON response fields, operation names, error codes, index rules, or safety behavior;
+- any public method exposed by `MaxPkgPackerApi`.
+
+When the API is affected, update all applicable items:
+
+1. The `MaxPkgPackerApi` implementation in `maxpkg-packager.ms`.
+2. `apiSchemaJson()`, including method and writable-option discovery.
+3. The API version when compatibility changes:
+   - keep the version for documentation-only corrections;
+   - increase the minor version for backward-compatible additions;
+   - increase the major version for breaking changes.
+4. `maxpkg-api.md`, including signatures, constraints, response examples, error behavior, and the recommended Max Ultra MCP workflow.
+5. `tests/maxpkg-api-smoke.ms` so the changed behavior is exercised.
+6. The API link or summary in `README.md` when its location, purpose, or entry workflow changes.
+
+Run `tests/maxpkg-api-smoke.ms` in an already-open 3ds Max instance through Max Ultra MCP. Require the exact result:
+
+```text
+MAXPKG_API_SMOKE_OK
+```
+
+For build-related changes, also verify that `build()` returns `ok: true`, `data.exists: true`, and an existing `.mzp` output path.
+
+If the release does not affect the API, explicitly record in the release review that the API was checked and no API or documentation update was required.
 
 ## Version Bump Rules
 

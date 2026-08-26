@@ -12,6 +12,7 @@ These ready-to-use prompts can help prepare an existing 3ds Max project with Cod
 
 - [MaxPkg Adaptation Prompt](maxpkg-adaptation-prompt.md) - adapt an existing script to the MaxPkg installation flow while preserving its runtime behavior.
 - [MaxPkg Full Onboarding Prompt](maxpkg-full-onboarding-prompt.md) - complete the adaptation, configure MaxPkg Packager, build and verify the package, and prepare the marketplace listing and upload instructions.
+- [MaxPkg Automation API](maxpkg-api.md) - control every package option, file list, changelog, build-path rule, extra macro, validation, and build operation from Max Ultra MCP or MaxScript.
 - [Recommended MaxScript Coding Rules](code-rules.md) - practical conventions for safe identifiers, functions, paths, UI code, generated scripts, validation, and maintainable MaxScript.
 
 Use the adaptation prompt when you only need the project code prepared for MaxPkg. Use the full onboarding prompt when you want the AI agent to handle the complete packaging workflow and leave you with a tested `.mzp` plus the content needed for maxpkg.dev.
