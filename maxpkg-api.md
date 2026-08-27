@@ -27,7 +27,7 @@ Successful response:
   "operation": "api.ping",
   "data": {
     "apiVersion": "1.0.0",
-    "packagerVersion": "1.2.0",
+    "packagerVersion": "1.2.1",
     "projectRoot": "C:\\Projects\\MyTool\"
   },
   "warnings": [],
