@@ -136,6 +136,9 @@ local errorMessage = "Package file was not found:\n" + missingFilePath
 - Distinguish source paths, package-relative paths, output paths, and installed paths in variable names.
 - Keep path separators correct for the API receiving the path.
 - Treat archive extraction directories as dynamic.
+- For an installed MaxPkg package, derive the runtime root from the executing entry script, for example `getFilenamePath (getThisScriptFileName())`.
+- Keep package-owned helpers, resources, and mutable settings inside that runtime root so they share one ownership and uninstall boundary.
+- Use a separate 3ds Max user-data folder only for shared or user-authored data that is intentionally expected to survive package removal.
 - Clean up temporary files and build folders when ownership is clear.
 
 ## Structures And Data
@@ -199,6 +202,7 @@ local packageFile = PackageFileData \
 ## INI, JSON, And Structured Data
 
 - Use standard INI functions such as `getINISetting`, `setINISetting`, and `delINISetting`.
+- An INI beside the installed entry file is valid and recommended when it is an intentional package-owned setting. Build its path from the executing script rather than from a developer path or unrelated system folder.
 - Save a UI setting when it changes if the project uses automatic persistence.
 - Provide safe defaults for missing or invalid settings.
 - Use a JSON serializer or a project JSON builder instead of manual JSON concatenation.
@@ -233,6 +237,7 @@ For .NET text input controls inside 3ds Max:
 - Validate quoting, newlines, and path separators in the final generated file.
 - Do not leave template concatenation fragments inside generated code.
 - Resolve installed package files from their runtime location, not from the author's source folder.
+- Keep installed package code, private resources, and package-owned settings under the same verified `$temp\<packageGuid>` runtime root. This lets uninstall remove the complete package by deleting one owned folder instead of searching for scattered leftovers.
 - Generate version-specific paths only at installation time when they depend on the current 3ds Max profile.
 - Make optional hooks optional and required hooks explicit.
 - Never delete a folder unless its resolved location has been validated as package-owned.

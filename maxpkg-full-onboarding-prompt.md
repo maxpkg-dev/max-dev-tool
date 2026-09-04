@@ -31,11 +31,14 @@ Phase 1: Audit the project
 
 Phase 2: Adapt the project to MaxPkg
 1. Make project paths dynamic. Resolve files relative to the currently executing script with getFilenamePath (getThisScriptFileName()) or the appropriate equivalent.
-2. Preserve existing runtime features while removing assumptions about a fixed source or installation folder.
-3. Use the standard MaxPkg _install.ms and _uninstall.ms hooks when package lifecycle UI or cleanup is needed.
-4. Move only genuinely project-specific work into custom install or uninstall scripts, such as registering callbacks, copying required external resources, or removing startup files and callbacks.
-5. Make custom hooks safe, idempotent where practical, and silent when called by MaxPkg Runtime in silent mode.
-6. Ensure uninstall removes package-owned callbacks, startup files, generated integration files, and other resources without deleting unrelated user data.
+2. Treat `$temp\<packageGuid>` as the single installed runtime root. Keep the entry script, helpers, resources, and package-owned mutable settings inside it.
+3. An INI beside the installed entry file is valid and recommended when it belongs only to the package. Resolve it from the executing script's folder; do not move it to an unrelated user directory by default.
+4. Use a separate user-data folder only for shared or user-authored data that is intentionally expected to survive package removal.
+5. Preserve existing runtime features while removing assumptions about a fixed source or installation folder.
+6. Use the standard MaxPkg _install.ms and _uninstall.ms hooks when package lifecycle UI or cleanup is needed.
+7. Move only genuinely project-specific work into custom install or uninstall scripts, such as registering callbacks, copying required external resources, or removing startup files and callbacks.
+8. Make custom hooks safe, idempotent where practical, and silent when called by MaxPkg Runtime in silent mode.
+9. Ensure uninstall removes the verified GUID runtime root and any package-owned integrations without searching unrelated system folders or deleting unrelated user data.
 
 Phase 3: Prepare the project root
 1. Place maxpkg-packager.ms in the project root if it is not already present.
@@ -101,7 +104,8 @@ When 3ds Max is available, test the actual .mzp in a suitable 3ds Max environmen
 - optional custom install work completes;
 - Quad Menu entries appear after any required restart;
 - uninstall runs silently when requested by MaxPkg Runtime and removes package-owned integrations;
-- reinstall or update preserves user settings where expected.
+- reinstall or update preserves user settings where expected;
+- uninstall removes package-owned INI files and resources together with the verified `$temp\<packageGuid>` runtime root, leaving no package-owned files scattered elsewhere.
 
 If 3ds Max or UI automation is unavailable, complete every static and archive-level check possible. Do not claim that runtime testing passed. State the exact untested steps and provide the shortest manual verification checklist.
 

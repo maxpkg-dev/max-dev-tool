@@ -242,6 +242,22 @@ Use these files as the MaxPkg installation interface. Do not replace them with a
 
 When adapting an existing project, inspect its old installer only to learn which files and setup steps the script requires. Add required runtime files to the Files List, configure macro buttons through the packager, and update fragile file paths to resolve relative to the running script. Keep the tool's features and user settings, but replace its old installation method with MaxPkg.
 
+### Runtime Root, Resources, And Package Settings
+
+MaxPkg installs each package into `$temp\<packageGuid>`. Treat this GUID folder as the package's single runtime root.
+
+The script that is actually launched should resolve its own installed folder and use that location for package resources and package-owned settings:
+
+```maxscript
+local packageRoot = getFilenamePath (getThisScriptFileName())
+local settingsFilePath = packageRoot + "settings.ini"
+local presetsFilePath = packageRoot + "resources\\presets.ini"
+```
+
+Keeping an INI next to the installed entry file is recommended when it is an intentional package-owned setting. The same rule applies to helpers, presets, icons, localization files, and other private resources: include them in the package and resolve them from `packageRoot` instead of scattering copies through unrelated 3ds Max or system folders.
+
+This layout gives the package one clear ownership boundary. When the verified `$temp\<packageGuid>` folder is removed, the entry script, resources, and package-owned settings are removed together, without searching for leftover files elsewhere on the machine. Use another user folder only for data that is deliberately shared, user-authored, or expected to survive package removal.
+
 Only `_install.ms` and `_uninstall.ms` are detected and included automatically.
 
 ## 3. Files

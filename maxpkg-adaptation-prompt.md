@@ -30,7 +30,8 @@ Migration process:
    - Macro or toolbar creation: configure the main button and extra macros through MaxPkg Packager.
    - Icon installation: use the package SVG icon and MaxPkg-generated macro handling.
    - Runtime initialization: move essential initialization into the runtime entry code or a focused helper loaded by the entry code.
-   - User settings: initialize them lazily in an appropriate writable 3ds Max user folder. Preserve existing settings during updates.
+   - Package-owned settings: initialize them lazily inside the installed package runtime root. An INI next to the installed entry file is valid and recommended when it belongs only to that package. Preserve existing settings during updates.
+   - Shared or durable user data: use a separate writable 3ds Max user folder only when the data is deliberately shared, user-authored, or expected to survive package removal.
    - Essential custom setup or cleanup: extract only the focused actions that MaxPkg cannot perform automatically into small `.ms` scripts, then select them as `Custom Install Script` or `Custom Uninstall Script` in Setup. Examples include registering or removing callbacks.
    - Obsolete installation-only work: remove it.
 5. Make the packaged runtime fully usable immediately after the standard MaxPkg installation completes.
@@ -44,7 +45,8 @@ Paths and package layout:
   local helperFilePath = scriptDir + "helpers\\tool-helper.ms"
 
 - If `getThisScriptFileName()` is unreliable in a specific execution context, use the safest context-appropriate equivalent, such as `getSourceFileName()`.
-- Use `getDir` locations only for data that genuinely belongs in a 3ds Max user folder, such as settings or user-generated data.
+- Use the installed entry script as the path anchor for package-owned INI files and resources. It is valid to create and update an INI beside the installed entry file when that setting belongs to the package.
+- Use `getDir` locations only for data that deliberately belongs outside the package runtime root, such as shared data or user-authored content that must survive package removal.
 - Do not hardcode a package GUID, a user name, a 3ds Max version, `$temp` subfolder, drive letter, or machine-specific absolute path.
 - Preserve relative subfolders unless a MaxPkg Build Path Remap is intentionally configured.
 - Make sure paths still work after `.ms` files are compiled to `.mse` and after Build Path Remap is applied.
@@ -53,6 +55,7 @@ Runtime requirements:
 - Preserve the author's actual tool behavior, not the author's installation method.
 - The selected entry file must launch the tool directly from the installed MaxPkg package without first running the old installer.
 - Required resources must be included in the package and resolved dynamically.
+- Keep package-owned resources and mutable settings inside `$temp\<packageGuid>` so uninstall can remove the complete package by deleting its verified runtime root instead of searching for files scattered through the system.
 - Optional files must remain optional and must not produce errors when absent.
 - Do not delete or overwrite existing user settings during installation or update.
 - Do not introduce destructive uninstall behavior copied from the author's uninstaller.
