@@ -1,0 +1,258 @@
+/* Canonical tool stylesheet. Theme tokens (at-sign + role name) are replaced by the active theme and every pixel
+   size is multiplied by the interface size (ui_scale.scale_sheet); never write an at-sign in comments here.
+   Spacing scale: 4 8 12 16 24. Radii: 3 4 6 8. */
+
+QWidget#toolWindow, QDialog#toolDialog { background: @window; color: @text; }
+/* Default text colour with the lowest specificity (this sheet is set on the tool's windows only): an id-based
+   descendant rule here would beat every variant / object-name colour (primary, danger, muted). */
+QWidget { color: @text; }
+QLabel { background: transparent; }
+QLabel#toolSection { color: @heading_text; font-weight: bold; }
+QLabel#toolMuted { color: @muted_text; }
+QLabel#toolCaption { color: @muted_text; font-size: 8pt; }
+QLabel#toolRequired { color: @log_error; font-weight: bold; }
+QLabel#toolIconPreview { background: transparent; border: none; }  /* The SVG icon at 64 x 64, no frame */  /* The * of a field that must be filled in */
+QLabel#toolError { color: @log_error; }
+/* An inline warning in the tool's warning style (as #toolBanner): yellow outline, gradient to transparent. */
+QLabel#toolWarningNote { color: @log_warning; background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+  stop: 0 @log_warning_background, stop: 1 transparent); border: 1px solid @log_warning; border-radius: 6px;
+  padding: 5px 8px; }
+QLabel a { color: @link; }
+
+QFrame#toolVDivider { background: @border; border: none; margin: 4px 2px; }
+/* A content block of the main window (options panel, list area): rounded, outlined. */
+QFrame#toolPanel { background: @tab_pane_background; border: 1px solid @group_border; border-radius: 8px; }
+QFrame#toolPanel QFrame#toolPanelSection { background: @surface; border: 1px solid @border; border-radius: 6px; }
+QFrame#toolAboutHero { background: @recessed; border: none; }
+QFrame#toolAccentDivider { background: @accent; border: none; }
+QFrame#toolRule { background: @border; border: none; }
+/* About: How to use in a card of its own (its numbered badges are painted: controls.NumberBadge). */
+QFrame#toolHowTo { background: @tab_pane_background; border: 1px solid @group_border; border-radius: 8px; }
+QLabel#toolAboutTitle { color: @heading_text; }
+/* Warning boxes fade from the warning tint at the top to transparent at the bottom. */
+QFrame#toolBanner { background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 @log_warning_background,
+                    stop: 1 transparent); border: 1px solid @log_warning; border-radius: 6px; }
+QLabel#toolBannerTitle { color: @log_warning; font-weight: bold; }
+/* A result that went well (the built package): green outline, green tint fading down. */
+QFrame#toolSuccess { background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 @log_success_background,
+                     stop: 1 transparent); border: 1px solid @log_success; border-radius: 6px; }
+QLabel#toolSuccessTitle { color: @log_success; font-weight: bold; }
+QLabel#toolSuccessText { color: @text; }
+/* Buttons on a coloured box take the box's colour on hover, never the neutral hover. */
+QFrame#toolSuccess QPushButton[variant="ghost"]:hover { background: @log_success_background; border-color: @log_success; }
+QFrame#toolBanner QPushButton[variant="ghost"]:hover { background: @log_warning_background; border-color: @log_warning; }
+QFrame#toolDanger QPushButton[variant="ghost"]:hover { background: @log_error_background; border-color: @log_error; }
+QFrame#toolDanger { background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 @log_error_background,
+                    stop: 1 transparent); border: 1px solid @log_error; border-radius: 6px; }
+QLabel#toolDangerTitle { color: @log_error; font-weight: bold; }
+
+QToolTip { background: @tooltip_background; color: @tooltip_text; border: 1px solid @active_border;
+  padding: 4px 6px; }  /* The outline of the help balloons: visible on every side, also on dark Max panels */
+
+QPushButton { background: @surface; color: @text; border: 1px solid @border; border-radius: 6px;
+  padding: 5px 12px; min-height: 18px; }
+QPushButton:hover { background: @hover; border-color: @active_border; }
+QPushButton:pressed { background: @pressed; }
+QPushButton:focus { border-color: @focus; outline: none; }  /* The focus colour is the sign; no dotted frame */
+QPushButton:disabled { background: @disabled_surface; color: @disabled_text; border-color: @disabled_border; }
+QPushButton:checked { background: @selected; color: @selected_text; border-color: @accent; }
+QPushButton[variant="primary"] { background: @accent; color: @log_badge_text; border-color: @accent; font-weight: bold; }
+QPushButton[variant="primary"]:hover { background: @focus; }
+QPushButton[variant="primary"]:disabled { background: @accent_disabled; color: @accent_disabled_text;
+  border-color: @accent_disabled_border; }
+QPushButton[variant="danger"] { background: @danger; color: @danger_text; border-color: @delete_border; }
+QPushButton[variant="danger"]:hover { background: @danger_hover; }
+QPushButton[variant="danger"]:pressed { background: @danger_pressed; }
+/* Disabled coloured buttons stay in their colour (a darker shade), never grey. */
+QPushButton[variant="danger"]:disabled { background: @danger_disabled; color: @danger_disabled_text;
+  border-color: @danger_disabled_border; }
+QPushButton[variant="ghost"] { background: transparent; border-color: transparent; padding: 5px 8px; }
+QPushButton[variant="ghost"]:hover { background: @hover; border-color: @border; }
+/* The title of an opening group: a panel title, not a button. Hover changes only the colour. */
+QPushButton#toolGroupHeader { background: transparent; border: 1px solid transparent; color: @heading_text;
+  font-weight: bold; padding: 2px 4px; text-align: left; }
+QPushButton#toolGroupHeader:hover, QPushButton#toolGroupHeader:pressed, QPushButton#toolGroupHeader:checked {
+  background: transparent; border-color: transparent; }
+QPushButton#toolGroupHeader:hover { color: @text; }
+QPushButton[variant="donate"] { background: @donate_background; color: @status_button_text; border-color: @donate_border; }
+QPushButton[variant="donate"]:hover { background: @donate_hover; }
+/* Title-bar buttons (as in MaxPkg Runtime Manager): 28 px circles, transparent at rest, a soft circle on hover.
+   Close turns red on hover with a light edge (the same red in every theme); its cross turns white (WindowButton). */
+QPushButton#toolIconButton { min-width: 28px; max-width: 28px; min-height: 28px; max-height: 28px; padding: 0px;
+  border: 1px solid transparent; border-radius: 14px; background: transparent; }
+QPushButton#toolIconButton[compact="true"] { min-width: 22px; max-width: 22px; min-height: 22px; max-height: 22px;
+  border-radius: 11px; }
+QPushButton#toolIconButton:hover { background: @hover; border-color: @border; }
+QPushButton#toolIconButton[role="close"]:hover { background: #9f3636; border-color: rgba(230, 120, 120, 150); }
+QPushButton#toolIconButton[role="close"]:pressed { background: #842d2d; border-color: rgba(230, 120, 120, 110); }
+/* A real button inside a field's right end (search): background and hover colour. */
+QPushButton#toolFieldButton { padding: 0px; min-height: 0px; background: @surface; border: 1px solid @border;
+  border-radius: 4px; }
+QPushButton#toolFieldButton:hover { background: @hover; border-color: @active_border; }
+QPushButton#toolFieldButton:pressed { background: @pressed; }
+QPushButton#toolFieldClear { padding: 0px; min-height: 0px; background: transparent; border: none; border-radius: 4px; }
+QPushButton#toolFieldClear:hover { background: @hover; }
+QPushButton#toolSoftButton { background: @surface; border: 1px solid transparent; padding: 3px 8px; text-align: left; }
+QPushButton#toolSoftButton:hover { background: @hover; border-color: @border; }
+QPushButton#toolSmallAction { font-size: 8pt; padding: 1px 6px; min-height: 0px; }
+QPushButton#toolChevron { background: transparent; border: none; padding: 2px; min-height: 0px; }
+QPushButton#toolChevron:hover { background: transparent; border: none; }
+/* Segments keep full borders and overlap by 1 px (placed by hand); the checked one is raised so its accent border
+   shows on every side. */
+QPushButton[segment="first"] { border-top-right-radius: 0px; border-bottom-right-radius: 0px; }
+QPushButton[segment="middle"] { border-radius: 0px; }
+QPushButton[segment="last"] { border-top-left-radius: 0px; border-bottom-left-radius: 0px; }
+
+/* Own title bar and the collapsed bar. */
+QFrame#toolTitleBar { background: transparent; border: none; }
+QLabel#toolWindowTitle { color: @accent; font-weight: bold; font-size: 10pt; }
+QFrame#toolMiniBar { background: transparent; border: none; }
+QPushButton#toolMiniTitle { background: transparent; border: none; color: @text; font-size: 9pt; padding: 2px 6px;
+                            text-align: left; }
+QPushButton#toolMiniTitle:hover { background: @hover; border-radius: 4px; }
+
+/* Settings: tabs and titled groups. The first tab sits on the pane's top-left corner: that corner is square, so the
+   tab joins the pane. */
+QTabWidget::pane { background: @tab_pane_background; border: 1px solid @tab_border; border-radius: 6px;
+  border-top-left-radius: 0px; top: -1px; }
+QTabBar::tab { background: @tab_background; color: @muted_text; border: 1px solid @tab_border; border-bottom: none;
+  padding: 6px 18px; margin-right: 2px; border-top-left-radius: 6px; border-top-right-radius: 6px; }
+QTabBar::tab:selected { background: @tab_pane_background; color: @text; }
+QTabBar::tab:hover:!selected { background: @hover; }
+QFrame#toolSettingsGroup { background: @active_tab_background; border: 1px solid @group_border; border-radius: 6px; }
+QLabel#toolGroupTitle { color: @heading_text; font-weight: bold; font-size: 10pt; }
+
+QLineEdit, QPlainTextEdit, QTextEdit, QTextBrowser { background: @field; color: @field_text; border: 1px solid @field_border;
+  border-radius: 6px; padding: 4px 6px; selection-background-color: @selected; selection-color: @selected_text; }
+QLineEdit:focus, QPlainTextEdit:focus, QTextEdit:focus, QTextBrowser:focus { border-color: @focus; }
+QTextEdit#toolLogView { background: @recessed; border-color: @group_border; padding: 2px; }
+QLineEdit:disabled { color: @disabled_text; border-color: @disabled_border; }
+QAbstractSpinBox:disabled { color: @disabled_text; }
+QLineEdit[readOnly="true"] { background: @recessed; }
+/* A completer list continues its field: square bottom corners on the field while it is open. */
+QLineEdit[open="true"] { border-color: @focus; border-bottom-left-radius: 0px; border-bottom-right-radius: 0px; }
+QListView#toolSuggest { background: @field; color: @field_text; border: 1px solid @focus; border-top: 1px solid @field_border;
+  border-bottom-left-radius: 6px; border-bottom-right-radius: 6px; padding: 2px 0px 5px 0px; outline: 0; }
+/* A dropdown panel (rows highlight by background only). */
+QFrame#toolDropdown { background: @field; border: 1px solid @border; border-radius: 6px; }
+QFrame#toolPopupRow { background: transparent; border: none; }
+QFrame#toolPopupRow:hover { background: @selected; }
+QFrame#toolPopupDivider { background: @border; border: none; margin: 2px 8px; }
+/* Lists: a rounded field; rows highlight by background (rounded) without a focus rectangle. */
+QListWidget { background: @field; color: @field_text; border: 1px solid @field_border; border-radius: 6px;
+  padding: 4px; outline: 0; }
+QListWidget::item { padding: 4px 8px; border-radius: 4px; }
+QListWidget::item:hover { background: @hover; }
+QListWidget::item:selected { background: @selected; color: @selected_text; }
+QTableWidget#toolTable { background: @field; alternate-background-color: @surface; color: @field_text;
+  border: 1px solid @field_border; border-radius: 6px; selection-background-color: @selected;
+  selection-color: @selected_text; outline: 0; }
+QTableWidget#toolTable::item { padding: 3px 8px; border: none; }
+QHeaderView::section { background: @surface; color: @muted_text; border: none; border-bottom: 1px solid @border;
+  padding: 4px 8px; }
+
+QCheckBox { spacing: 7px; background: transparent; }
+QCheckBox::indicator { width: 13px; height: 13px; border: 1px solid @checkbox_border; border-radius: 3px; background: @recessed; }
+QCheckBox::indicator:hover { border-color: @checkbox_hover_border; }
+QCheckBox::indicator:checked { background: @accent; border-color: @accent; image: url(@icon_check); }
+QCheckBox::indicator:disabled { background: @disabled_surface; border-color: @disabled_border; }
+QCheckBox::indicator:checked:disabled { image: url(@icon_check_disabled); }
+QCheckBox::indicator:indeterminate { background: @accent; border-color: @accent; image: url(@icon_minus); }
+QCheckBox::indicator:indeterminate:disabled { background: @disabled_surface; border-color: @disabled_border; image: url(@icon_minus_disabled); }
+QCheckBox:disabled { color: @disabled_text; }
+
+QComboBox { background: @field; color: @field_text; border: 1px solid @field_border; border-radius: 6px;
+  padding: 4px 26px 4px 8px; }
+QComboBox:hover { border-color: @active_border; }
+QComboBox:focus { border-color: @focus; }
+QComboBox:disabled { color: @disabled_text; border-color: @disabled_border; }
+QComboBox::drop-down { width: 24px; border: none; background: transparent; subcontrol-origin: padding; subcontrol-position: center right; }
+QComboBox::down-arrow { image: url(@icon_chevron_down); width: 12px; height: 12px; }
+QComboBox::down-arrow:disabled { image: url(@icon_chevron_down_disabled); }
+QListView#toolPopup { background: @popup; color: @text; border: 1px solid @border; border-radius: 6px; padding: 4px;
+  outline: 0; }
+QListView#toolPopup::item { padding: 4px 10px; border-radius: 4px; min-height: 20px; }
+QListView#toolPopup::item:selected, QListView#toolPopup::item:hover { background: @selected; color: @selected_text; }
+
+/* Scroll bars: thin, no visible track, a pill thumb rounded over its whole width. Bar 10 px, thumb margin 2 px, so the
+   thumb is 6 px and its radius 3 px is exactly half of it. Keep that ratio: every px here is scaled and rounded on
+   its own (ui_scale), and Qt draws a square thumb when the radius is more than half its width. Hover and press only
+   change the thumb's colour. */
+QScrollBar:vertical { width: 10px; background: transparent; border: none; margin: 0px; }
+QScrollBar:horizontal { height: 10px; background: transparent; border: none; margin: 0px; }
+QScrollBar::handle:vertical { background: @scroll_thumb; min-height: 28px; border-radius: 3px; margin: 2px; }
+QScrollBar::handle:horizontal { background: @scroll_thumb; min-width: 28px; border-radius: 3px; margin: 2px; }
+QScrollBar::handle:hover { background: @scroll_hover; }
+QScrollBar::handle:pressed { background: @scroll_pressed; }
+QScrollBar::add-page, QScrollBar::sub-page { background: none; border: none; }
+QScrollBar::add-line, QScrollBar::sub-line { background: none; border: none; width: 0; height: 0; }
+QScrollBar::up-arrow, QScrollBar::down-arrow, QScrollBar::left-arrow, QScrollBar::right-arrow { image: none; width: 0; height: 0; }
+QAbstractScrollArea::corner { background: transparent; border: none; }
+QScrollArea { background: transparent; border: none; }
+QScrollArea > QWidget > QWidget { background: transparent; }
+
+QGroupBox { border: 1px solid @group_border; border-radius: 6px; margin-top: 14px; padding: 10px 8px 8px 8px; }
+QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 4px; color: @heading_text; }
+
+QPushButton::menu-indicator { image: none; width: 0px; }
+QMenu { background: @popup; color: @text; border: 1px solid @border; border-radius: 6px; padding: 4px; }
+QMenu::item { padding: 5px 18px 5px 10px; border-radius: 4px; }
+QMenu::item:selected { background: @selected; color: @selected_text; }
+QMenu::item:disabled { color: @disabled_text; }
+QMenu::separator { height: 1px; background: @border; margin: 4px 6px; }
+/* Menu items (Menu.add_item): icon and text, a rounded highlight; destructive items are red. */
+QPushButton#toolMenuItem { background: transparent; border: none; border-radius: 4px; text-align: left;
+  padding: 5px 18px 5px 8px; min-width: 120px; }
+QPushButton#toolMenuItem:hover { background: @selected; color: @selected_text; }
+QPushButton#toolMenuItem:disabled { background: transparent; color: @disabled_text; }
+QPushButton#toolMenuItem[danger="true"] { color: @log_error; }
+QPushButton#toolMenuItem[danger="true"]:hover { background: @log_error_background; color: @log_error; }
+
+/* Lists and multi-line text boxes sit in a field frame (controls.boxed): the frame draws border, focus and error. */
+QFrame#toolBox { background: @field; border: 1px solid @field_border; border-radius: 6px; }
+QFrame#toolBox[focused="true"] { border-color: @focus; }
+QFrame#toolBox[invalid="true"] { border-color: @log_error; }
+QFrame#toolBox QListWidget, QFrame#toolBox QPlainTextEdit, QFrame#toolBox QTextEdit { border: none; background: transparent; }
+/* The mini log: no padding, so a row's tint reaches the box's border; the text keeps its inset (frame margins). */
+QFrame#toolBox QTextEdit#toolStatusView { padding: 0px; }
+
+/* A required field that is empty or wrong: red outline (its tooltip says why). */
+QLineEdit[invalid="true"], QPlainTextEdit[invalid="true"], QComboBox[invalid="true"], QListWidget[invalid="true"],
+QPushButton[variant="field"][invalid="true"], QFrame#toolStepper[invalid="true"] { border-color: @log_error; }
+
+/* Toast: the message about the last action, above the bottom strip. */
+QFrame#toolToast { background: @popup; border: 1px solid @border; border-radius: 8px; }
+QFrame#toolToast[level="error"] { background: @log_error_background; border-color: @log_error; }
+QFrame#toolToast[level="success"] { background: @log_success_background; border-color: @log_success; }
+QFrame#toolToast[level="warning"] { background: @log_warning_background; border-color: @log_warning; }
+QFrame#toolToast[level="info"] { background: @log_info_background; border-color: @log_info; }
+QLabel#toolToastText { color: @text; }
+
+/* Pickers: a date field that looks like the other fields, calendar days and the version stepper. */
+QPushButton[variant="field"] { background: @field; color: @field_text; border: 1px solid @field_border; border-radius: 6px;
+  padding: 4px 8px; text-align: left; }
+QPushButton[variant="field"]:hover { border-color: @active_border; }
+QPushButton[variant="field"]:focus, QPushButton[variant="field"][open="true"] { border-color: @focus; }
+QPushButton[variant="field"]:disabled { color: @disabled_text; border-color: @disabled_border; }
+QWidget#toolCalendar { background: transparent; }
+QFrame#toolCalendarFrame { background: @field; border: 1px solid @border; border-radius: 8px; }
+QLabel#toolCalendarTitle { color: @heading_text; font-weight: bold; }
+QLabel#toolCalendarWeekday { color: @muted_text; font-size: 8pt; }
+QPushButton#toolDay { background: transparent; border: 1px solid transparent; border-radius: 6px; color: @text; padding: 0px;
+  min-width: 26px; max-width: 26px; min-height: 24px; max-height: 24px; }
+QPushButton#toolDay:hover { background: @hover; }
+QPushButton#toolDay[state="other"] { color: @disabled_text; }
+QPushButton#toolDay[state="today"] { border-color: @accent; }
+QPushButton#toolDay[state="selected"] { background: @accent; color: @log_badge_text; border-color: @accent; }
+QPushButton#toolStepButton { padding: 0px; min-width: 22px; max-width: 22px; min-height: 22px; max-height: 22px; }
+QLineEdit#toolStepValue { padding: 3px 2px; min-height: 16px; }
+
+/* Number stepper: one rounded field, the arrows stacked inside its right edge. */
+QFrame#toolStepper { background: @field; border: 1px solid @field_border; border-radius: 6px; }
+QFrame#toolStepper:hover { border-color: @active_border; }
+QFrame#toolStepper[focused="true"] { border-color: @focus; }
+QLineEdit#toolStepValue { background: transparent; border: none; padding: 4px 2px 4px 6px; min-height: 20px; }
+QPushButton#toolStepArrow { background: transparent; border: none; border-radius: 3px; padding: 0px; min-height: 0px;
+  min-width: 18px; max-width: 18px; min-height: 12px; max-height: 12px; }
+QPushButton#toolStepArrow:hover { background: @hover; }
+QPushButton#toolStepArrow:pressed { background: @pressed; }

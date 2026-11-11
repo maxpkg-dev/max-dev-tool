@@ -1,0 +1,1 @@
+messageBox "Hello from MAXPKG"

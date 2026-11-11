@@ -1,0 +1,8 @@
+# What installed copies download from main (raw.githubusercontent.com) is stored byte for byte: release/update.json
+# holds the SHA-256 of the launcher, the hooks and the payload, and 1.x reads the launcher as it is (ASCII, CRLF).
+# With core.autocrlf, Git would commit these files with other line endings than the ones hashed, and every update
+# would be refused. release.py checks that these rules are in place.
+/maxpkg-packager.ms -text
+/_install.ms -text
+/_uninstall.ms -text
+/release/** -text

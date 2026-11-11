@@ -1,608 +1,123 @@
 # MaxPkg Packager
 
-`maxpkg-packager.ms` helps 3ds Max developers build clean MaxPkg-compatible `.mzp` packages.
+Build clean `.mzp` packages of your 3ds Max scripts for [maxpkg.dev](https://maxpkg.dev).
 
-Put the packager into the root folder of your script project, run it in 3ds Max, fill in the package information, add your files, choose the entry file, and build the final `.mzp` archive.
+**One file in your project.** The installer puts [`maxpkg-packager.ms`](maxpkg-packager.ms) into the root folder of
+your script project; you run it in 3ds Max, fill in a few fields and press **Build**.
 
-The script keeps its settings next to your project, so every package can have its own metadata, changelog, icon, and build output.
+Requires 3ds Max 2022 or newer.
 
-## AI-Assisted Packaging
+## Install
 
-These ready-to-use prompts can help prepare an existing 3ds Max project with Codex or Claude Code:
+1. Download **[MaxPkgPackager.mzp](https://github.com/maxpkg-dev/max-dev-tool/releases/latest/download/MaxPkgPackager.mzp)**
+   (the newest release).
+2. Drag it into a 3ds Max viewport (or **Scripting > Run Script...**). It installs the packager into your user profile,
+   no internet needed, and asks for the root folder of your script project.
+3. It puts `maxpkg-packager.ms` there and shows how to go on. **Open the packager** starts it right away.
 
-- [MaxPkg Adaptation Prompt](maxpkg-adaptation-prompt.md) - adapt an existing script to the MaxPkg installation flow while preserving its runtime behavior.
-- [MaxPkg Full Onboarding Prompt](maxpkg-full-onboarding-prompt.md) - complete the adaptation, configure MaxPkg Packager, build and verify the package, and prepare the marketplace listing and upload instructions.
-- [MaxPkg Automation API](maxpkg-api.md) - control every package option, file list, changelog, build-path rule, extra macro, validation, and build operation from Max Ultra MCP or MaxScript.
-- [Recommended MaxScript Coding Rules](code-rules.md) - practical conventions for safe identifiers, functions, paths, UI code, generated scripts, validation, and maintainable MaxScript.
+<p>
+  <img src="docs/images/installer-project.png" width="320" alt="The installer asks for the root folder of the script project">
+  <img src="docs/images/installer-done.png" width="320" alt="After Install: how to use the packager from now on">
+</p>
 
-Use the adaptation prompt when you only need the project code prepared for MaxPkg. Use the full onboarding prompt when you want the AI agent to handle the complete packaging workflow and leave you with a tested `.mzp` plus the content needed for maxpkg.dev.
+To package another project, run the installer again, or copy `maxpkg-packager.ms` into that project yourself.
+Installing into a project that is set up already replaces only `maxpkg-packager.ms`: its `max-package` settings stay
+as they are. If something goes wrong, download the installer again and run it: your projects are kept.
 
-Share the coding rules with your AI agent before it edits MaxScript so generated code follows safer naming and implementation conventions.
+## Use
 
-## Requirements
+1. Run `maxpkg-packager.ms` from your project: drag it into a viewport or **Scripting > Run Script...**.
+2. Fill in the four tabs:
+   - **Info**: package name, button name, description, developer, license. The GUID is created for you.
+   - **Setup**: the 3ds Max button, the toolbar, the optional install / uninstall windows.
+   - **Files**: your package files, the entry file (the script the button runs) and a square SVG icon.
+   - **Release**: version, channel, release date, minimum 3ds Max and the changelog.
 
-- Autodesk 3ds Max.
-- A script project that you want to package.
-- `maxpkg-packager.ms`.
-- A valid square SVG icon.
-- Python support in 3ds Max only if your package entry file is `.py`.
+   Fields marked with a red `*` must be filled in; the `?` next to a title explains the part.
+3. Press **Build**. When something is missing, the list of problems opens; click a line to go to the field.
+4. Test the `.mzp` in 3ds Max (drag it into a viewport), then upload it on
+   [maxpkg.dev/dashboard/packages](https://maxpkg.dev/dashboard/packages).
 
-Supported entry files:
+<p>
+  <img src="docs/images/packager-info.png" width="320" alt="The Info tab: package name, GUID, description, author and license">
+  <img src="docs/images/packager-release.png" width="320" alt="The Release tab: version, channel, date and the changelog">
+</p>
+<p>
+  <img src="docs/images/packager-built.png" width="400" alt="A good build: the green banner with the package and how to upload it">
+</p>
 
-```text
-.ms
-.mse
-.py
-```
+## Your project folder
 
-## Quick Start
-
-1. Download and extract the MaxPkg repository.
-2. Copy `maxpkg-packager.ms` into the root folder of your own project.
-3. If needed, copy `_install.ms`, `_uninstall.ms`, or both into the same project folder.
-4. Open 3ds Max.
-5. Run `maxpkg-packager.ms` from `Scripting > Run Script...`, or drag it into a viewport.
-6. Fill the required fields in the packager window.
-7. Add your package files.
-8. Select an entry file and click `Use Selected`.
-9. Add at least one changelog item for the current version.
-10. Fix anything shown by the `Has Issues` status.
-11. Click `Build MZP`.
-
-The package will be created in the output folder. By default, that is:
-
-```text
-<project-root>\dist
-```
-
-## Project Folder
-
-The folder that contains `maxpkg-packager.ms` is treated as the package root.
-
-After downloading and extracting the MaxPkg repository, copy `maxpkg-packager.ms` into the folder of the project you want to package. If the project needs the optional installer or uninstaller, copy `_install.ms`, `_uninstall.ms`, or both into that same folder.
-
-Example:
+The packager adds exactly one folder next to itself:
 
 ```text
 MyTool\
-  maxpkg-packager.ms
-  _install.ms          optional
-  _uninstall.ms        optional
-  main.ms
-  helpers\
-    ui.ms
-  data\
-    presets.json
+  maxpkg-packager.ms      the packager's launcher (the installer puts it here)
+  max-package\            everything the packager keeps for this project
+    project.ini           settings
+    changelog.ini         changelog of every version
+    icon.svg              the package icon
+    _install.ms           optional standard install window
+    _uninstall.ms         optional standard uninstall window
+    dist\                 built .mzp packages
+  main.ms                 your files, untouched
+  ...
 ```
 
-Keep one copy of `maxpkg-packager.ms` inside each project you package. This keeps the project settings, changelog, icon, and optional hooks nicely separated.
+Projects made with the packager 1.x open as they are: their files move into `max-package` on the first run.
+Commit `max-package` with your project; its `dist` is ignored automatically.
 
-## Project Support Files
+Version 1.x updates itself to 2.0: it downloads the new `maxpkg-packager.ms`, which then installs the packager and
+moves the project's files. Nothing has to be done by hand.
 
-The project folder may contain these support files next to `maxpkg-packager.ms`:
-
-- `maxpkg-packager.ini` - saved project settings.
-- `maxpkg-changelog.ini` - changelog entries, grouped by version.
-- `maxpkg-icon.svg` - the selected icon copied into the project root.
-- `_install.ms` - optional installer hook that you copy from this repository when needed.
-- `_uninstall.ms` - optional uninstaller hook that you copy from this repository when needed.
-- `dist\*.mzp` - built package archives.
-
-The packager creates and maintains its INI, changelog, icon, and output files. It does not create the optional hooks; copy those templates into the project yourself when needed.
-
-## Interface Overview
-
-The packager uses four tabs:
-
-- `1. Info` - package identity, description, developer, and license.
-- `2. Setup` - macro button, toolbar metadata, and optional hook status.
-- `3. Files` - output folder, SVG icon, package files, and entry file.
-- `4. Release` - version, release date, 3ds Max version, channel, and changelog.
-
-At the top you will see a status button:
-
-- `Ready` means the package has the required information.
-- `Has Issues` means something still needs to be fixed.
-
-Click the status button to open the log. The log tells you where to fix each issue, for example:
-
-```text
-License is required (1. Info -> License)
-SVG icon is required (3. Files -> SVG Icon)
-Changelog for version 1.0.0 must contain at least one item (4. Release -> Changelog)
-```
-
-The log uses the active 3ds Max theme and color-codes complete entries: green for `[OK]`, red for `[ERROR]`, yellow for `[WARNING]`, and blue for informational messages. It keeps the latest 30 entries visible and scrolls to the newest result automatically. The complete in-memory log is still used when deciding whether a build contains errors.
-
-`Build MZP` uses the same status color. If there are issues, it will stay red and the package will not be created.
-
-## 1. Info
-
-### Package Name
-
-The public name of your package.
-
-Allowed characters:
-
-```text
-A-Z a-z 0-9 space - _
-```
-
-Avoid dots, slashes, `@`, non-English letters, and emoji. The package name is also used to generate a safe archive filename.
-
-### Button Name
-
-The text used for the generated 3ds Max macro button.
-
-It uses the same character rules as `Package Name`.
-
-### GUID
-
-The GUID is the package identity.
-
-Generate it once and keep it. The GUID is used to identify the package on maxpkg.dev and to verify uploaded archives. Changing it later means you are creating a different package identity.
-
-If a GUID already exists, generating a new one requires extra confirmation.
-
-Right-click the GUID field to open the custom context menu:
-
-- `Copy`
-- `Paste`
-
-Pasting over an existing GUID shows a warning first.
-
-### Description
-
-A short description of your package.
-
-This field is required and is written into the manifest. It is also shown by the optional installer window.
-
-### Developer Name
-
-Required.
-
-Use the developer name you want users to see.
-
-### License
-
-Required.
-
-You must choose one of:
-
-- `Free`
-- `Shareware`
-- `Commercial`
-- `Open source`
-- `Trial`
-
-The default value is empty on purpose, so you do not accidentally publish a package with the wrong license.
-
-### Optional Links
-
-These fields are optional, but useful:
-
-- `License URL`
-- `Documentation URL`
-- `Homepage URL`
-- `Support URL`
-
-### Purchase URL
-
-Use `Purchase URL` when your package has a paid license, donation page, sponsor page, or another external support link.
-
-If you add a purchase link, choose how the button should be displayed on the website:
-
-- `Buy`
-- `Purchase`
-- `Get license`
-- `Donate`
-- `Support`
-- `Sponsor`
-
-Pick the label that best matches the action users should take.
-
-## 2. Setup
-
-### Create 3ds Max Button
-
-When enabled, the package creates a macro button during installation.
-
-The generated macro is created for the current 3ds Max user profile, so it uses the correct local user macro and icon folders on the machine where the package is installed.
-
-### Show In MaxPkg Toolbar
-
-This saves toolbar metadata into the manifest.
-
-If MaxPkg is loaded during installation, the installer tries to refresh the toolbar automatically.
-
-### Standard MaxPkg Installer Hooks
-
-The repository includes the standard MaxPkg `_install.ms` and `_uninstall.ms` files. Copy either file next to `maxpkg-packager.ms` when you want its installation or removal interface in your package. Leave it out when you do not need that interface.
-
-The Setup tab shows each hook in green when its file is available and gray when it is not. Detected hooks are included automatically, so you do not need to add them to the Files List.
-
-When a standard hook is ready, you may also choose a focused custom script:
-
-- `Custom Install Script` runs at the end of package installation.
-- `Custom Uninstall Script` runs before MaxPkg removes the package files.
-
-Use these scripts only for project-specific actions that MaxPkg cannot infer, such as registering or removing callbacks. Each custom script must be a `.ms` file inside the project folder. The packager includes it automatically, writes its packaged location to the manifest, and applies Build Path Remap when necessary.
-
-Keep custom scripts focused and non-interactive. A custom uninstall script must finish its cleanup before MaxPkg removes the package folder; short timer-based cleanup is supported, but it should not wait for additional user input.
-
-Do not add a selected custom script to the Files List. If the same file is selected in Setup and is also present in the Files List, validation reports the conflict and blocks the build.
-
-When MaxPkg Packager updates itself, it also downloads the latest copy of each hook that already exists in the project root. Missing hooks are not created automatically.
-
-`_install.ms` provides a standalone installation window with the package icon, name, version, developer, current-version changelog, and an optional `Developer site` link. You can open it from the project folder to preview the interface. In preview mode, clicking `Install` does not install, change, or delete anything. Closing an actual extracted installer before confirmation removes only its verified `$temp\<GUID>` package folder.
-
-`_uninstall.ms` provides a matching standalone removal window. During a real uninstall, it removes the verified `$temp\<GUID>` package folder, the package-generated macro files from the current 3ds Max user profile, and the installed SVG icon. When opened from a project folder, its button works only as a preview and cannot remove project files.
-
-Use these files as the MaxPkg installation interface. Do not replace them with an older author installer or include the old installer as a fallback. If the project needs a small amount of additional setup or cleanup, move only those required actions into the matching custom script selected in Setup. The packaged script must run directly from its MaxPkg package folder after installation.
-
-When adapting an existing project, inspect its old installer only to learn which files and setup steps the script requires. Add required runtime files to the Files List, configure macro buttons through the packager, and update fragile file paths to resolve relative to the running script. Keep the tool's features and user settings, but replace its old installation method with MaxPkg.
-
-### Runtime Root, Resources, And Package Settings
-
-MaxPkg installs each package into `$temp\<packageGuid>`. Treat this GUID folder as the package's single runtime root.
-
-The script that is actually launched should resolve its own installed folder and use that location for package resources and package-owned settings:
-
-```maxscript
-local packageRoot = getFilenamePath (getThisScriptFileName())
-local settingsFilePath = packageRoot + "settings.ini"
-local presetsFilePath = packageRoot + "resources\\presets.ini"
-```
-
-Keeping an INI next to the installed entry file is recommended when it is an intentional package-owned setting. The same rule applies to helpers, presets, icons, localization files, and other private resources: include them in the package and resolve them from `packageRoot` instead of scattering copies through unrelated 3ds Max or system folders.
-
-This layout gives the package one clear ownership boundary. When the verified `$temp\<packageGuid>` folder is removed, the entry script, resources, and package-owned settings are removed together, without searching for leftover files elsewhere on the machine. Use another user folder only for data that is deliberately shared, user-authored, or expected to survive package removal.
-
-Only `_install.ms` and `_uninstall.ms` are detected and included automatically.
-
-## 3. Files
-
-### Output Folder
-
-Where the final `.mzp` archive will be saved.
-
-Default:
-
-```text
-<project-root>\dist
-```
-
-### SVG Icon
-
-Required.
-
-Choose a safe square `.svg` icon. A square icon is important for correct display in 3ds Max buttons, toolbars, and MaxPkg listings.
-
-Use an SVG with a square canvas or viewBox, for example:
-
-```text
-viewBox="0 0 64 64"
-```
-
-Non-square icons may look stretched, cropped, or visually off-center.
-
-The packager copies the selected icon into the project root as:
-
-```text
-maxpkg-icon.svg
-```
-
-Inside the final package, it is stored as:
-
-```text
-icons\icon.svg
-```
-
-During installation, the icon is copied to the current 3ds Max user icons folder and named with the package GUID.
-
-### Files List
-
-Use the file buttons to add your package files.
-
-- `Add Files` lets you select multiple files at once.
-- `Add Folder` adds files from a folder.
-- `Remove` removes the selected file after confirmation.
-
-The packager skips common internal and temporary files, such as `.git`, `.bak`, `.tmp`, `.log`, `.zip`, `.mzp`, packager settings, and build command files.
-
-### Entry File
-
-The entry file is the main file that runs when the generated macro button is clicked.
-
-To set it:
-
-1. Add the file to `Files List`.
-2. Select it in the list.
-3. Click `Use Selected`.
-
-Runtime is detected automatically:
-
-- `.py` runs with `python.ExecuteFile`.
-- `.ms` and `.mse` run with `fileIn`.
-
-### Compile entry file .ms to .mse
-
-This option is enabled by default for `.ms` entry files.
-
-It is disabled automatically for `.py` and `.mse`.
-
-When enabled:
-
-- your source `.ms` file is not modified;
-- the temporary build copy is compiled to `.mse`;
-- the package uses the generated `.mse` as the entry file.
-
-### Build Path Remap
-
-`Build Path Remap` is an advanced, collapsed section in `3. Files`.
-
-Use it when your source project must keep files in one folder, but the final package needs those files in another folder.
-
-Example:
-
-```text
-COMPILE -> /
-```
-
-This means files such as:
-
-```text
-COMPILE\uac.lnk
-COMPILE\external_script.ms
-```
-
-will be copied into the package root as:
-
-```text
-uac.lnk
-external_script.ms
-```
-
-Leave the target folder empty when you want to remap into the package root.
-
-### Extra Macros
-
-`Extra Macros` is an advanced, collapsed section in `3. Files`.
-
-Use it when your package needs more than one 3ds Max macro button. The main macro button runs the `Entry File`; extra macros let you create additional buttons that run other `.ms`, `.mse`, or `.py` files from `Files List`.
-
-To add an extra macro:
-
-1. Add the script file to `Files List`.
-2. Open `Extra Macros`.
-3. Choose the script file from the dropdown.
-4. Enter the button name.
-5. Enable `Compile .ms to .mse` if needed.
-6. Enable `Show in Quad Menu` if the command should also appear in the viewport right-click menu.
-7. Click `Add`.
-
-Extra macro button names may use only:
-
-```text
-A-Z a-z space _
-```
-
-Spaces are removed internally when the packager creates the technical `macroScript` name, so a button name like `Open Tools` becomes a safe macro identifier automatically.
-
-If `Compile .ms to .mse` is enabled for an extra macro, the build uses the compiled `.mse` file for that macro. If the same file is also used as the main `Entry File`, the compile option must match in both places.
-
-Extra macros respect `Build Path Remap`. For example, if `COMPILE\tool.ms` is remapped to the package root and used by an extra macro, the generated macro will run `tool.ms` or `tool.mse` from the final package location.
-
-`Show in Quad Menu` supports both the classic 3ds Max menu system and the newer Quad Menu API used by recent 3ds Max versions. MaxPkg creates a small package-specific script in the current 3ds Max user startup folder, so selected commands are restored every time 3ds Max starts. Package uninstall removes both the Quad Menu entries and this startup script.
-
-## 4. Release
-
-### Version
-
-Version is split into three dropdowns:
-
-```text
-major.minor.patch
-```
-
-Examples:
-
-```text
-1.0.0
-1.0.1
-2.3.0
-```
-
-The major dropdown supports `0..99`. Minor and patch support `0..9`.
-
-### Channel
-
-Choose one:
-
-- `stable`
-- `alpha`
-- `beta`
-
-The channel is saved separately as `releaseChannel`. It is not added to the version string.
-
-### Release Date
-
-Uses a date picker and saves the date in this format:
-
-```text
-YYYY-MM-DD
-```
-
-Release date is saved per version.
-
-### Min 3ds Max
-
-The minimum supported 3ds Max version.
-
-The list starts at `2012` and ends at the current year plus one.
-
-This setting is saved per version.
-
-### Changelog
-
-Every version has its own changelog.
-
-For example:
-
-- `1.0.0` can have its own entries.
-- `1.0.1` can have different entries.
-
-When you change the version dropdowns, the packager loads the changelog, release date, channel, and minimum 3ds Max version for that version.
-
-At least one changelog item is required before building.
-
-Changelog types:
-
-- `Added`
-- `Fixed`
-- `Changed`
-- `Removed`
-- `Improved`
-
-Changes are saved automatically after `Add`, `Edit/Save`, and `Remove`.
-
-## Building
-
-When the status is `Ready`, click:
-
-```text
-Build MZP
-```
-
-The final filename uses:
-
-```text
-slug@version@guid.mzp
-```
-
-Example:
-
-```text
-test-package@1.0.1@54d9b847-13a1-4747-b993-0d039a1c7ac3.mzp
-```
-
-The slug is created from `Package Name`.
-
-If the log contains any `[ERROR]` entry, the `.mzp` file will not be created.
-
-## What Goes Into The Package
-
-The generated `.mzp` contains:
-
-```text
-manifest.ini
-manifest.json
-maxpkg-changelog.ini
-mzp.run
-mzp.run.ms
-_install.ms         optional
-_uninstall.ms       optional
-<custom install script>    optional
-<custom uninstall script>  optional
-icons\icon.svg
-<your package files>
-```
-
-`manifest.ini` and `manifest.json` contain the package metadata.
-
-`mzp.run` is the native 3ds Max MZP command file.
-
-`mzp.run.ms` runs during installation. It reads the manifest, creates the optional main macro button, creates any extra macro buttons, installs the icon, runs `_install.ms` if it exists, and notifies MaxPkg when possible. The standard hooks read the custom script locations from the manifest. `_uninstall.ms` is recorded in the manifest for package removal.
-
-## Testing The Package
-
-After building, test the `.mzp` before uploading it.
-
-In 3ds Max:
-
-1. Use `Scripting > Run Script...` and select the `.mzp`, or drag the `.mzp` into a viewport.
-2. If you enabled the macro button, check that it appears in the `MaxPkg` category.
-3. Click the generated button and make sure your entry file runs.
-4. Check that the icon appears correctly.
-5. If you included `_install.ms`, make sure the install window looks right.
-
-## Publishing On maxpkg.dev
-
-After you build and test your `.mzp`, you can upload it to MaxPkg.
-
-1. Open [maxpkg.dev](https://maxpkg.dev).
-2. Sign in, or create an account.
-3. Open [maxpkg.dev/account](https://maxpkg.dev/account).
-4. If you do not have a developer profile yet, click `Become a Developer`.
-5. If you already have a developer profile, open the Developer Dashboard.
-6. Go to [maxpkg.dev/dashboard/packages](https://maxpkg.dev/dashboard/packages).
-7. Create a package and fill in the required information.
-8. Open the package `Versions` tab.
-9. Upload the `.mzp` file created by MaxPkg Packager.
-
-The submitted file will be reviewed before it appears on the website.
+**3ds Max 2021 and older** cannot run version 2. There the launcher and the installer offer version 1.2.1 instead
+([release/maxpkg-packager-1.x.ms](release/maxpkg-packager-1.x.ms)), which stays on 1.x and does not update to 2.
 
 ## Updates
 
-The packager checks for updates when it starts.
+The packager checks for a new version in the background and installs it next to the current one. The new version
+starts the next time you open the packager. A version that cannot start is rolled back to the previous one
+automatically. You can turn automatic updates off in **Settings**.
 
-Update downloads run in the background. If the standard `.NET` download is unavailable, the packager automatically tries `curl.exe` when it is available on the system.
+## For AI agents and scripts
 
-You can also open `About` and click:
+`MaxPkgPackerApi` does everything the window does, with or without the window. See
+[docs/ai-agents.md](docs/ai-agents.md).
 
-```text
-Check Updates
-```
+## Documentation
 
-If an update is installed, the packager shows a notice with update information.
+- [docs/ai-agents.md](docs/ai-agents.md) - automation API and workflow for AI agents.
+- [docs/maxpkg-adaptation-prompt.md](docs/maxpkg-adaptation-prompt.md) - prompt to adapt an existing script to the
+  MaxPkg installation flow.
+- [docs/maxpkg-full-onboarding-prompt.md](docs/maxpkg-full-onboarding-prompt.md) - prompt for the complete packaging
+  workflow, from adaptation to a tested `.mzp` and the marketplace listing.
+- [docs/code-rules.md](docs/code-rules.md) - recommended MaxScript coding rules.
 
-## Common Issues
-
-### License is required
-
-Go to `1. Info -> License` and choose a license.
-
-### SVG icon is required
-
-Go to `3. Files -> SVG Icon` and choose a valid square `.svg` file.
-
-### SVG icon looks stretched or cropped
-
-Use a square SVG canvas or viewBox. For example, `viewBox="0 0 64 64"` works well.
-
-### Changelog must contain at least one item
-
-Go to `4. Release -> Changelog` and add at least one item for the current version.
-
-### Entry file must be included in package files
-
-Go to `3. Files`, add the file to `Files List`, select it, and click `Use Selected`.
-
-### Package name or button name has invalid characters
-
-Use only:
+## Repository
 
 ```text
-A-Z a-z 0-9 space - _
+maxpkg-packager.ms     the launcher a project needs (ASCII; its header carries the version and release notes; version
+                       1.x updates itself to it from here)
+_install.ms            the standard MaxPkg install window (version 1.x also updates it from here)
+_uninstall.ms          the standard MaxPkg removal window
+release.bat            publishes a release (tests, build, then commit, push and GitHub release after you confirm)
+maxpkg-src\            the packager: python\ (Python + Qt), assets\, tools\ (release.py, update_check.py); a name
+                       no client project uses
+release\               what installed copies update from: the application archive and update.json
+docs\                  documentation
+tests\                 tests of the packaging core and the API
 ```
 
-### Build MZP stays red
+Development: running `maxpkg-packager.ms` from the repository starts the source in `maxpkg-src\` instead of the
+installed copy. Tests run with the Python of 3ds Max:
 
-Click the status button at the top. The log will show what to fix and which tab contains the field.
+```bash
+"C:\Program Files\Autodesk\3ds Max 2027\Python\python.exe" -I -m unittest discover -s tests -p "test_*.py"
+```
 
-## Minimal Working Package
-
-For the smallest useful package:
-
-1. Put `maxpkg-packager.ms` into your project root.
-2. Run it in 3ds Max.
-3. Fill `Package Name`, `Button Name`, `Description`, `Developer Name`, and `License`.
-4. Generate a GUID.
-5. Choose a valid square SVG icon.
-6. Add your entry `.ms`, `.mse`, or `.py` file to `Files List`.
-7. Select it and click `Use Selected`.
-8. Add one changelog item.
-9. Make sure the status says `Ready`.
-10. Click `Build MZP`.
-
-Then test the generated `.mzp` in 3ds Max before uploading it.
+Release (details in `.codex/how-to-release.md`): raise `__version__` in
+`maxpkg-src\python\maxpkgpackager\__init__.py` and `VERSION` in `maxpkg-packager.ms` and add the version's notes to
+the launcher header. Then, on `main`, double-click **`release.bat`**: it runs the tests, builds `release\` and the
+installer `release\MaxPkgPackager.mzp` (also what you give a tester), shows what would be committed and, after you
+answer `y`, commits, pushes and creates the GitHub release with the installer. Before publishing,
+`python maxpkg-src\tools\update_check.py` rehearses the update of a 1.x user and the installer on a local server.

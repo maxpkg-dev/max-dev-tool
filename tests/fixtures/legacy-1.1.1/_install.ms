@@ -1,0 +1,1 @@
+-- placeholder of the standard hook (the test checks that it is detected)

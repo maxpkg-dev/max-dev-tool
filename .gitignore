@@ -1,4 +1,11 @@
-/dist
+# The developer's local test project (the repository root opened as a project)
+/max-package/
+/dist/
+/test.ms
 
+__pycache__/
+*.pyc
 
-
+# Attached to the GitHub release, not committed
+/release/MaxPkgPackager.mzp
+/release/release-notes.md

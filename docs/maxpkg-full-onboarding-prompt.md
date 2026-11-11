@@ -41,8 +41,8 @@ Phase 2: Adapt the project to MaxPkg
 9. Ensure uninstall removes the verified GUID runtime root and any package-owned integrations without searching unrelated system folders or deleting unrelated user data.
 
 Phase 3: Prepare the project root
-1. Place maxpkg-packager.ms in the project root if it is not already present.
-2. Add the standard _install.ms and _uninstall.ms files when required by the current MaxPkg workflow.
+1. Place the one file maxpkg-packager.ms in the project root if it is not already present (https://raw.githubusercontent.com/maxpkg-dev/max-dev-tool/main/maxpkg-packager.ms). Everything the packager keeps for the project lives in the max-package folder next to it; write no other files into the project root.
+2. Add the standard _install.ms and _uninstall.ms installer windows when required, with MaxPkgPackerApi.addStandardHook (they go into max-package).
 3. Prepare a square SVG package icon. Reuse or carefully adapt an existing official project icon when possible. Do not invent a misleading brand identity.
 4. Keep custom install and uninstall scripts separate from ordinary package files when the packager provides dedicated fields for them.
 5. Remove obsolete package inputs only when they are clearly replaced and safe to remove. Do not delete author source files merely because they are not packaged.
@@ -50,7 +50,7 @@ Phase 3: Prepare the project root
 Phase 4: Configure MaxPkg Packager completely
 Fill the project's MaxPkg Packager settings and related INI data with values supported by evidence in the project.
 
-Do not stop at recommending field values. Apply them to the project-local packager settings and versioned changelog files using the formats already implemented by MaxPkg Packager. If direct configuration is genuinely impossible, explain the blocker and provide the exact remaining field values in one compact table.
+Do not stop at recommending field values. Apply them through MaxPkgPackerApi (see docs/ai-agents.md in the MaxPkg Packager repository): load it headless, setOptions, addFile / addFolder, setEntry, addChangelog, validate, build. Do not edit the files in max-package by hand. If direct configuration is genuinely impossible, explain the blocker and provide the exact remaining field values in one compact table.
 
 Info:
 - Package Name
@@ -110,7 +110,7 @@ When 3ds Max is available, test the actual .mzp in a suitable 3ds Max environmen
 If 3ds Max or UI automation is unavailable, complete every static and archive-level check possible. Do not claim that runtime testing passed. State the exact untested steps and provide the shortest manual verification checklist.
 
 Phase 7: Prepare the marketplace listing
-Create maxpkg-marketplace-listing.md in the project root. It must contain ready-to-use content, not planning notes:
+Create max-package/maxpkg-marketplace-listing.md (never in the project root). It must contain ready-to-use content, not planning notes:
 - Package name
 - Recommended marketplace category
 - One-sentence summary
