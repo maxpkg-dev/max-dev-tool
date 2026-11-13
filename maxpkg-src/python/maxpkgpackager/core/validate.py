@@ -5,7 +5,7 @@ import os
 from . import project as core_project
 from . import svgcheck
 
-from .project import (CHANNELS, ENTRY_EXTENSIONS, HOOK_FILES, LICENSES, MIN_MAX_YEAR, SAFE_MACRO_TITLE, compiled_path,
+from .project import (CHANNELS, ENTRY_EXTENSIONS, LICENSES, MIN_MAX_YEAR, SAFE_MACRO_TITLE, compiled_path,
                       is_safe_display, is_safe_relative, is_safe_rule_folder, is_valid_guid, max_year_plus_one, norm)
 
 ERROR, WARNING, OK = "ERROR", "WARNING", "OK"
@@ -145,13 +145,11 @@ def validate(project):
 
 
 def _check_hooks(project, error):
-    for label, source, standard in (("Custom Install Script", project.custom_install, "_install.ms"),
-                                    ("Custom Uninstall Script", project.custom_uninstall, "_uninstall.ms")):
+    for label, source in (("Custom Install Script", project.custom_install),
+                          ("Custom Uninstall Script", project.custom_uninstall)):
         source = norm(source).strip()
         if not source:
             continue
-        if not project.hook_path(standard):
-            error("{}: add the standard {} window first (Setup, Installer windows)".format(label, standard), "setup", label)
         if not os.path.isfile(source):
             error("{}: the file is missing; choose it again or clear the field".format(label), "setup", label)
         if not source.lower().endswith(".ms"):
@@ -187,8 +185,8 @@ def _check_files(project, entry, error):
         else:
             targets[lowered] = relative
         if lowered.endswith("\\_install.ms") or lowered.endswith("\\_uninstall.ms"):
-            error("Files: {} belongs in the package root; remove it here and use Setup, Installer windows".format(
-                os.path.basename(lowered)), "files", "Files")
+            error("Files: remove {}; the packager adds its own to every package".format(os.path.basename(lowered)),
+                  "files", "Files")
     return targets
 
 
@@ -229,8 +227,3 @@ def _check_macros(project, entry, error):
             error("Extra macros: two buttons are named '{}'; rename one".format(macro.button), "files", "Extra Macros")
         identifiers.add(macro.identifier.lower())
         modes[file_key] = macro.compile
-
-
-def hook_status(project):
-    """{hook file name: present} for the Setup tab."""
-    return {name: bool(project.hook_path(name)) for name in HOOK_FILES}

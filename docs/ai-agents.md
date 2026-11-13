@@ -4,7 +4,7 @@ This guide is for AI agents and scripts that package a 3ds Max tool for [maxpkg.
 clicking through the packager window. Everything a person can do in the window can be done through
 `MaxPkgPackerApi`.
 
-API version: `2.0.0` (packager 2.0.0). Method and option names are those of the MaxScript packager 1.x API, so
+API version: `2.1.0` (packager 2.0.1). Method and option names are those of the MaxScript packager 1.x API, so
 existing automation keeps working; what changed is listed at the end.
 
 ## Rules for agents
@@ -59,7 +59,7 @@ Every method returns one JSON string. Parse the outer MCP result, then this inne
 An error item is `{"code": "...", "message": "..."}`. Stop the dependent workflow when `ok` is `false`; fix the
 arguments or the project and retry. Codes: `NO_PROJECT`, `UNKNOWN_OPTION`, `INVALID_VALUE`, `INVALID_INDEX`,
 `FILE_NOT_FOUND`, `FOLDER_NOT_FOUND`, `OUTSIDE_PROJECT`, `FILE_EXCLUDED`, `FILE_NOT_IN_PACKAGE`, `FILE_IN_USE`,
-`GUID_EXISTS`, `DUPLICATE`, `NOT_PUBLISHED`, `VALIDATION`, `BUILD_FAILED`, `INTERNAL_ERROR`.
+`GUID_EXISTS`, `DUPLICATE`, `VALIDATION`, `BUILD_FAILED`, `INTERNAL_ERROR`.
 
 Collection indexes are **1-based**. Every mutation saves the project at once.
 
@@ -75,7 +75,6 @@ Collection indexes are **1-based**. Every mutation saves the project at once.
 | Changelog | `listChangelog()`, `addChangelog type text`, `updateChangelog index type text`, `removeChangelog index`, `clearChangelog()` |
 | Build path remap | `listBuildPathRules()`, `addBuildPathRule source target`, `updateBuildPathRule index source target`, `removeBuildPathRule index`, `clearBuildPathRules()` |
 | Extra macros | `listExtraMacros()`, `addExtraMacro relativePath buttonName compileScript:false showInQuadMenu:false`, `updateExtraMacro index ...`, `removeExtraMacro index`, `clearExtraMacros()` |
-| Installer windows | `addStandardHook "_install.ms"` or `"_uninstall.ms"` (downloads the official file into `max-package`) |
 | Result | `validate()`, `build()`, `getLog()`, `clearLogEntries()` |
 
 `setOptions` accepts a MaxScript array of pairs, a Python dict or a JSON object string. It checks every value before
@@ -95,7 +94,7 @@ saves once.
 | `purchaseButtonLabel` | `Buy`, `Purchase`, `Get license`, `Donate`, `Support`, `Sponsor` |
 | `createMacroButton`, `showInToolbar` | `true` / `false` (new project: `true`) |
 | `compileEntry` | `true` / `false` (new project: `true`): compile the `.ms` entry into `.mse` while building |
-| `customInstallScript`, `customUninstallScript` | An existing `.ms` inside the project, or empty; needs the matching standard hook |
+| `customInstallScript`, `customUninstallScript` | An existing `.ms` inside the project, or empty |
 | `outputFolder` | Folder; default `max-package\dist` |
 | `svgIconFile` | A square, safe SVG; it is copied to `max-package\icon.svg` |
 | `entryFile` | A file already added, `.ms`, `.mse` or `.py`; `setEntry` does the same |
@@ -133,6 +132,10 @@ MaxPkgPackerApi.validate()
 MaxPkgPackerApi.build()
 ```
 
+Every package gets the MaxPkg install and uninstall windows (`_install.ms`, `_uninstall.ms`). They ship with the
+packager, which keeps a copy in `max-package`; there is nothing to add, download or edit. For project-specific work
+at install or removal, set `customInstallScript` / `customUninstallScript`.
+
 Require `ok == true`, `data.exists == true` and an existing `data.outputFile` from `build()`. The archive is
 `max-package\dist\<slug>@<version>@<guid>.mzp`. Test it in 3ds Max before the user uploads it on maxpkg.dev.
 
@@ -143,15 +146,17 @@ Require `ok == true`, `data.exists == true` and an existing `data.outputFile` fr
 3. Set the options (one `setOptions`), keep an existing GUID, generate one only for a new package.
 4. Add every runtime file the tool needs (`addFile` / `addFolder`); not tests, sources of other tools, backups or
    old installers.
-5. `setEntry` to the script the button runs. Add `addStandardHook` only when the install / uninstall window is wanted.
+5. `setEntry` to the script the button runs.
 6. Write the changelog of this version.
 7. `validate()`: fix every error (each names the field), repeat until `ok`.
 8. `build()`, then `getState()` for the final state.
 
 ## Changes from the 1.x API
 
-- The project files live in `max-package/` (`project.ini`, `changelog.ini`, `icon.svg`, the standard hooks and
-  `dist/`). Files of a 1.x project move there automatically on first open.
-- `openProject`, `setEntry`, `addStandardHook`, `getOption` and the headless mode are new.
+- The project files live in `max-package/` (`project.ini`, `changelog.ini`, `icon.svg`, `_install.ms`,
+  `_uninstall.ms` and `dist/`). Files of a 1.x project move there automatically on first open.
+- `openProject`, `setEntry`, `getOption` and the headless mode are new.
+- `_install.ms` and `_uninstall.ms` are part of every package (API 2.1.0). `addStandardHook` is no longer needed; it
+  is kept for older automation and downloads nothing. `standardHooks` in `getState()` is always `true` for both.
 - `validate()` reports problems as `errors` with `ok: false`; each has `field` and `where` (tab -> field).
 - `min3dsMax` starts at 2022.

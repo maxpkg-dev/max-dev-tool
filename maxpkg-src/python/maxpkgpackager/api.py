@@ -20,12 +20,12 @@ import re
 import shutil
 import sys
 
-from . import DISPLAY_NAME, UPDATE_URL, __version__
+from . import DISPLAY_NAME, __version__
 from .core import build as core_build
 from .core import project as core
 from .core import store, svgcheck, validate as core_validate
 
-API_VERSION = "2.0.0"
+API_VERSION = "2.1.0"
 _state = {"root": None, "project": None, "log": []}
 
 
@@ -649,18 +649,13 @@ def clearExtraMacros():
 # ---- standard installer windows ---------------------------------------------------------------------------------
 @_operation("hooks.add")
 def addStandardHook(hookFileName):
-    """Download the standard _install.ms or _uninstall.ms into the project's max-package folder (needs internet)."""
-    from .core import updater
+    """Not needed any more: _install.ms and _uninstall.ms ship with the packager and are in every package. Kept so
+    that older automation keeps working; it answers with the files in the project's max-package folder."""
     project, model = _target()
     name = str(hookFileName).strip()
     if name not in core.HOOK_FILES:
         raise ApiError("INVALID_VALUE", "hookFileName must be _install.ms or _uninstall.ms")
-    entry = (updater.fetch_manifest(UPDATE_URL).get("hooks") or {}).get(name)
-    if not entry:
-        raise ApiError("NOT_PUBLISHED", "{} is not published".format(name))
-    os.makedirs(project.support_dir, exist_ok=True)
-    updater.replace_file(entry["url"], entry.get("sha256", ""), os.path.join(project.support_dir, name))
-    _commit(project, model)
+    _commit(project, model)  # Saving puts both files into max-package
     return {"standardHooks": {hook: bool(project.hook_path(hook)) for hook in core.HOOK_FILES}}
 
 

@@ -134,17 +134,6 @@ class MainWindow(ToolWindow):
         if self.toast.items:
             self.toast.place()
 
-    def fetch_hook(self, name, done):
-        def finished(value):
-            if isinstance(value, Exception):
-                self.set_status("Could not download {}: {}".format(name, value))
-            else:
-                self.set_status("{} added to the project folder.".format(name))
-            done()
-            self.model.touch(structural=True)
-        self.set_status("Downloading {}…".format(name), "info")
-        self.controller.download_hook(name, finished)
-
     @staticmethod
     def _has_icon(name):
         from .. import resources

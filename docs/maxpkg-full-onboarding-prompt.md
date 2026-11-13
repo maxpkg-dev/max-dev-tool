@@ -35,14 +35,14 @@ Phase 2: Adapt the project to MaxPkg
 3. An INI beside the installed entry file is valid and recommended when it belongs only to the package. Resolve it from the executing script's folder; do not move it to an unrelated user directory by default.
 4. Use a separate user-data folder only for shared or user-authored data that is intentionally expected to survive package removal.
 5. Preserve existing runtime features while removing assumptions about a fixed source or installation folder.
-6. Use the standard MaxPkg _install.ms and _uninstall.ms hooks when package lifecycle UI or cleanup is needed.
+6. Rely on the standard MaxPkg _install.ms and _uninstall.ms hooks for package lifecycle UI and cleanup: the packager adds them to every package.
 7. Move only genuinely project-specific work into custom install or uninstall scripts, such as registering callbacks, copying required external resources, or removing startup files and callbacks.
 8. Make custom hooks safe, idempotent where practical, and silent when called by MaxPkg Runtime in silent mode.
 9. Ensure uninstall removes the verified GUID runtime root and any package-owned integrations without searching unrelated system folders or deleting unrelated user data.
 
 Phase 3: Prepare the project root
 1. Place the one file maxpkg-packager.ms in the project root if it is not already present (https://raw.githubusercontent.com/maxpkg-dev/max-dev-tool/main/maxpkg-packager.ms). Everything the packager keeps for the project lives in the max-package folder next to it; write no other files into the project root.
-2. Add the standard _install.ms and _uninstall.ms installer windows when required, with MaxPkgPackerApi.addStandardHook (they go into max-package).
+2. Leave the standard _install.ms and _uninstall.ms installer windows to the packager: it keeps them in max-package and adds them to every package. Do not add, download, or edit them.
 3. Prepare a square SVG package icon. Reuse or carefully adapt an existing official project icon when possible. Do not invent a misleading brand identity.
 4. Keep custom install and uninstall scripts separate from ordinary package files when the packager provides dedicated fields for them.
 5. Remove obsolete package inputs only when they are clearly replaced and safe to remove. Do not delete author source files merely because they are not packaged.

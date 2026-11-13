@@ -4,6 +4,7 @@ import datetime
 import os
 import shutil
 
+from . import hooks
 from .inifile import IniFile, escape_value, unescape_value
 from .project import (CHANGELOG_FILE, CHANNELS, ICON_FILE, clamp_min_max, LEGACY_FILES, SETTINGS_FILE, SUPPORT_DIR, MacroItem,
                       Project, Release, is_safe_rule_folder,
@@ -85,6 +86,7 @@ def normalize_date(text):
 def load(root):
     """Read a project. Missing files give an empty project; broken values fall back to defaults."""
     migrate_legacy(root)
+    hooks.sync(root)  # A project has the install and uninstall windows from its first open, and always the current ones
     project = Project(root)
     ini = IniFile.read(settings_path(root))
 
@@ -234,6 +236,7 @@ def save(project):
     ini.set("ui", "lastTab", project.last_tab)
     ini.write(settings_path(project.root))
     _ensure_ignore_file(project.root)
+    hooks.sync(project.root)
     save_changelog(project)
 
 

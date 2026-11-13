@@ -348,35 +348,11 @@ class SetupPage(Page):
             lay.addWidget(box)
         self.column.addWidget(frame)
 
-        frame, lay = panel("Installer windows", self.theme, "Standard hooks",
-                           "`_install.ms`: the standard MaxPkg install window.\n\n"
-                           "`_uninstall.ms`: the standard removal window.\n\n"
-                           "A file in the max-package folder is included automatically.")
-        self.hook_pills, self.hook_buttons = {}, {}
-        for name, text in (("_install.ms", "Install window"), ("_uninstall.ms", "Uninstall window")):
-            row = QtWidgets.QHBoxLayout()
-            row.setSpacing(px(8))
-            label = QtWidgets.QLabel(text)
-            label.setFixedWidth(px(108))
-            row.addWidget(label)
-            pill = controls.Pill(self.theme, "", "neutral")
-            self.hook_pills[name] = pill
-            row.addWidget(pill)
-            row.addStretch(1)
-            get = controls.Button("Add", self.theme, icon="download",
-                                  tooltip="Download {} into the project folder".format(name))
-            get.clicked.connect(lambda _=False, n=name: self.ctx.fetch_hook(n, self.refresh))
-            self.hook_buttons[name] = get
-            row.addWidget(get)
-            lay.addLayout(row)
-        self.column.addWidget(frame)
-
         frame, lay = panel("Custom scripts", self.theme, "Custom scripts",
                            "Optional: a short, non-interactive `.ms` file for project-specific work.\n\n"
                            "**Install** runs at the end of installation.\n"
                            "**Uninstall** runs before removal.\n\n"
-                           "Keep it inside the project folder. It is included automatically: do not add it to Files.\n\n"
-                           "Needs the matching standard file.")
+                           "Keep it inside the project folder. It is included automatically: do not add it to Files.")
         self.custom = {}
         for attr, text in (("custom_install", "Custom install script"), ("custom_uninstall", "Custom uninstall script")):
             edit = self.line(lambda a=attr: getattr(self.project, a), lambda t, a=attr: setattr(self.project, a, t),
@@ -415,21 +391,8 @@ class SetupPage(Page):
             box.blockSignals(True)
             box.setChecked(value)
             box.blockSignals(False)
-        present = {}
-        for name, pill in self.hook_pills.items():
-            found = bool(p.hook_path(name))
-            present[name] = found
-            pill.set_status("Included" if found else "Not added", "success" if found else "neutral",
-                            "max-package\\{} is included in every build".format(name) if found else
-                            "Click Add to download the standard {} into max-package".format(name))
-            self.hook_buttons[name].setVisible(not found)
-        for attr, (edit, browse, clear) in self.custom.items():
+        for attr, (edit, _browse, clear) in self.custom.items():
             self.sync(edit)
-            standard = "_install.ms" if attr == "custom_install" else "_uninstall.ms"
-            browse.setEnabled(present[standard])
-            browse.setToolTip("Choose a .ms file in the project folder" if present[standard] else
-                              "Add the {} window first: the custom script runs from it".format(
-                                  "install" if standard == "_install.ms" else "uninstall"))
             clear.setVisible(bool(getattr(p, attr)))
 
 

@@ -6,7 +6,7 @@ import shutil
 import tempfile
 import zipfile
 
-from . import store
+from . import hooks, store
 from .inifile import escape_value
 from .project import HOOK_FILES, clamp_min_max, compiled_path, max_year_plus_one, norm
 from .validate import ERROR, OK, WARNING, validate
@@ -47,14 +47,10 @@ def _flag(value):
 def manifest_values(project, packager_title, packager_version):
     """Ordered (key, value) pairs of the [package] section; the JSON manifest uses the same data."""
     release = project.release()
-    install = "_install.ms" if project.hook_path("_install.ms") else ""
-    uninstall = "_uninstall.ms" if project.hook_path("_uninstall.ms") else ""
 
-    def custom(source, standard):
+    def custom(source):
         source = norm(source).strip()
-        if not source or not project.hook_path(standard):
-            return ""
-        return project.build_path(project.relative_to_root(source))
+        return project.build_path(project.relative_to_root(source)) if source else ""
 
     return [
         ("manifestVersion", MANIFEST_VERSION),
@@ -79,10 +75,10 @@ def manifest_values(project, packager_title, packager_version):
         ("purchaseButtonLabel", project.purchase_label),
         ("createMacroButton", project.create_button),
         ("showInToolbar", project.show_toolbar),
-        ("installScript", install),
-        ("uninstallScript", uninstall),
-        ("customInstallScript", custom(project.custom_install, "_install.ms")),
-        ("customUninstallScript", custom(project.custom_uninstall, "_uninstall.ms")),
+        ("installScript", HOOK_FILES[0]),  # Every package has the install and uninstall windows (core/hooks.py)
+        ("uninstallScript", HOOK_FILES[1]),
+        ("customInstallScript", custom(project.custom_install)),
+        ("customUninstallScript", custom(project.custom_uninstall)),
         ("packager", packager_title),
         ("packagerVersion", packager_version),
     ]
@@ -201,11 +197,13 @@ def _stage_files(project, stage, title, version, say, compile_script):
                 say(ERROR, "Could not compile {}".format(relative))
     say(OK, "{} files copied".format(len(project.files)))
 
-    for name in HOOK_FILES:
-        hook = project.hook_path(name)
+    for name in HOOK_FILES:  # The packager's own files; the project's copy only when this packager has lost its own
+        hook = hooks.shipped(name) or project.hook_path(name)
         if hook:
             shutil.copyfile(hook, os.path.join(stage, name))
             say(OK, "{} copied".format(name))
+        else:
+            say(ERROR, "{} is missing: install MaxPkg Packager again".format(name))
     for source in (project.custom_install, project.custom_uninstall):
         source = norm(source).strip()
         if source:
@@ -263,7 +261,7 @@ def verify_archive(path, project):
         for name in names:
             if name.startswith("/") or ".." in name.split("/") or ":" in name:
                 raise ValueError("Unsafe archive path: {}".format(name))
-        for required in ("manifest.ini", "manifest.json", "mzp.run", "mzp.run.ms"):
+        for required in ("manifest.ini", "manifest.json", "mzp.run", "mzp.run.ms") + HOOK_FILES:
             if required not in names:
                 raise ValueError("Archive is missing {}".format(required))
         manifest = json.loads(archive.read("manifest.json").decode("utf-8"))

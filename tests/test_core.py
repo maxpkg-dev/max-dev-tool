@@ -15,10 +15,15 @@ import zipfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "maxpkg-src", "python"))
 
+from maxpkgpackager import __version__ as VERSION  # noqa: E402
 from maxpkgpackager.core import build, project as project_module, store, updater, validate  # noqa: E402
 from maxpkgpackager.core.inifile import IniFile  # noqa: E402
 
 ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64"/></svg>'
+
+
+def manifest_of(archive):
+    return json.loads(archive.read("manifest.json").decode("utf-8"))
 
 
 def fake_compile(path):
@@ -103,8 +108,14 @@ class CoreTests(Fixture):
         with zipfile.ZipFile(result.output_file) as archive:
             names = archive.namelist()
             for expected in ("manifest.ini", "manifest.json", "mzp.run", "mzp.run.ms", "maxpkg-quad.ms", "main.mse",
-                             "lib/util.mse", "_install.ms", "icons/icon.svg", "maxpkg-changelog.ini"):
+                             "lib/util.mse", "_install.ms", "_uninstall.ms", "icons/icon.svg",
+                             "maxpkg-changelog.ini"):
                 self.assertIn(expected, names)
+            for name in project_module.HOOK_FILES:  # The packager's own, whatever the project folder holds
+                with open(os.path.join(os.path.dirname(HERE), name), "rb") as handle:
+                    self.assertEqual(archive.read(name), handle.read(), name)
+            self.assertEqual((manifest_of(archive)["installScript"], manifest_of(archive)["uninstallScript"]),
+                             ("_install.ms", "_uninstall.ms"))
             self.assertNotIn("main.ms", names)
             manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
             self.assertEqual(manifest["entry"], "main.mse")
@@ -314,13 +325,13 @@ class SetupTests(unittest.TestCase):
         os.makedirs(self.project)
         self.source = os.path.join(self.root, "maxpkg-packager.ms")
         with open(self.source, "wb") as handle:
-            handle.write(b"/*\r\n[INFO]\r\nNAME=MaxPkg Packager\r\nVERSION=2.0.0\r\n*/\r\n")
+            handle.write("/*\r\n[INFO]\r\nNAME=MaxPkg Packager\r\nVERSION={}\r\n*/\r\n".format(VERSION).encode("ascii"))
 
     def test_new_project_gets_only_the_launcher(self):
         self.assertEqual(self.setup.describe(self.project), "new")
         target = self.setup.install_launcher(self.source, self.project)
         self.assertEqual(os.listdir(self.project), ["maxpkg-packager.ms"])
-        self.assertEqual(self.setup.launcher_version(target), "2.0.0")
+        self.assertEqual(self.setup.launcher_version(target), VERSION)
         self.assertEqual(self.setup.describe(self.project), "same")
 
     def test_version_1_is_recognised_and_replaced(self):
@@ -330,7 +341,7 @@ class SetupTests(unittest.TestCase):
         self.assertEqual(self.setup.launcher_version(old), "1.2.1")
         self.assertEqual(self.setup.describe(self.project), "old")
         self.setup.install_launcher(self.source, self.project)
-        self.assertEqual(self.setup.launcher_version(old), "2.0.0")
+        self.assertEqual(self.setup.launcher_version(old), VERSION)
         self.assertEqual(os.listdir(self.project), ["maxpkg-packager.ms"])  # No backup left next to it
 
     def test_folder_problems(self):
@@ -385,7 +396,7 @@ class MigrationTests(unittest.TestCase):
         self.assertEqual(proj.package_name, "Old Tool")
         self.assertEqual(sorted(os.listdir(root)), ["keep.ms", "max-package"])
         self.assertEqual(sorted(os.listdir(os.path.join(root, "max-package"))),
-                         ["_install.ms", "changelog.ini", "icon.svg", "project.ini"])
+                         ["_install.ms", "_uninstall.ms", "changelog.ini", "icon.svg", "project.ini"])
         self.assertEqual(proj.svg_icon, os.path.join(root, "max-package", "icon.svg"))
         self.assertTrue(proj.hook_path("_install.ms"))
         store.save(proj)
@@ -426,6 +437,68 @@ class MigrationTests(unittest.TestCase):
         self.addCleanup(shutil.rmtree, root, True)
         store.save(store.load(root))
         self.assertEqual(os.listdir(root), ["max-package"])
+
+
+class HookTests(unittest.TestCase):
+    """_install.ms and _uninstall.ms ship with the packager: a project has them in max-package from its first open,
+    always the packager's own, and every package is built with them."""
+
+    def setUp(self):
+        from maxpkgpackager.core import hooks
+        self.hooks = hooks
+        self.root = tempfile.mkdtemp(prefix="maxpkg-hooks-")
+        self.addCleanup(shutil.rmtree, self.root, True)
+
+    def shipped(self, name):
+        with open(os.path.join(os.path.dirname(HERE), name), "rb") as handle:
+            return handle.read()
+
+    def in_project(self, name):
+        with open(os.path.join(self.root, "max-package", name), "rb") as handle:
+            return handle.read()
+
+    def test_a_project_has_them_from_its_first_open(self):
+        project = store.load(self.root)
+        self.assertEqual(sorted(os.listdir(self.root)), ["max-package"])
+        self.assertEqual(sorted(os.listdir(os.path.join(self.root, "max-package"))), ["_install.ms", "_uninstall.ms"])
+        for name in project_module.HOOK_FILES:
+            self.assertTrue(project.hook_path(name))
+            self.assertEqual(self.in_project(name), self.shipped(name), name)
+        self.assertEqual(self.hooks.sync(self.root), [])  # Nothing to do the second time: no file is rewritten
+
+    def test_a_changed_or_deleted_copy_is_put_back(self):
+        store.load(self.root)
+        with open(os.path.join(self.root, "max-package", "_install.ms"), "w") as handle:
+            handle.write("-- someone's own installer")
+        os.remove(os.path.join(self.root, "max-package", "_uninstall.ms"))
+        store.save(store.load(self.root))
+        for name in project_module.HOOK_FILES:
+            self.assertEqual(self.in_project(name), self.shipped(name), name)
+
+    def test_a_build_fails_without_them(self):
+        fixture = Fixture("setUp")
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        original = self.hooks.shipped
+        self.hooks.shipped = lambda name: ""  # A broken installation: the packager has lost its own files
+        self.addCleanup(setattr, self.hooks, "shipped", original)
+        os.remove(os.path.join(fixture.root, "max-package", "_install.ms"))
+        result = build.build(fixture.project, compile_script=fake_compile)
+        self.assertFalse(result.ok)
+        self.assertTrue(any("_install.ms is missing" in text for _level, text in result.messages), result.messages)
+        self.assertTrue(any("_uninstall.ms is missing" in text for _level, text in result.messages), result.messages)
+
+    def test_the_application_archive_carries_them(self):
+        """What release.py packs: an installed copy reads them from assets/hooks, the repository from its root."""
+        sys.path.insert(0, os.path.join(os.path.dirname(HERE), "maxpkg-src", "tools"))
+        self.addCleanup(sys.path.pop, 0)
+        import release
+        original = release.RELEASE
+        release.RELEASE = self.root
+        self.addCleanup(setattr, release, "RELEASE", original)
+        with zipfile.ZipFile(release.build_payload("0.0.0")) as archive:
+            for name in project_module.HOOK_FILES:
+                self.assertEqual(archive.read("assets/hooks/" + name), self.shipped(name), name)
 
 
 class UpdaterTests(unittest.TestCase):

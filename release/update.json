@@ -1,14 +1,14 @@
 {
   "schema": 1,
-  "version": "2.0.0",
+  "version": "2.0.1",
   "payload": {
-    "url": "https://raw.githubusercontent.com/maxpkg-dev/max-dev-tool/main/release/maxpkg-packager-app-2.0.0.zip",
-    "sha256": "43be2699014328c85b99821e5771efbdc4abe979b0248fa4e5b44b614282da35",
-    "size": 166373
+    "url": "https://raw.githubusercontent.com/maxpkg-dev/max-dev-tool/main/release/maxpkg-packager-app-2.0.1.zip",
+    "sha256": "33bb2abcccfe1d8a2c73c43f7e9f9ab0cd2a512b84cc1c6e0924d1efe0a0a722",
+    "size": 181029
   },
   "launcher": {
     "url": "https://raw.githubusercontent.com/maxpkg-dev/max-dev-tool/main/maxpkg-packager.ms",
-    "sha256": "274d5c9a44f34f8e0bff5c97e27436d8cc5335dc2ad92caba0cb56a2fed9f88c"
+    "sha256": "9dd9e477fec20a78e2f7ed84db0ef52befd8e3cb5a1f660ae0653782c547d107"
   },
   "hooks": {
     "_install.ms": {
@@ -21,12 +21,7 @@
     }
   },
   "notes": [
-    "+ Added: Complete rewrite in Python and Qt: a compact window, a colour log, a quick changelog editor",
-    "+ Added: Safe automatic updates: verified download, one-step switch, automatic rollback to the previous version",
-    "+ Added: MaxPkgPackerApi for AI agents, with or without the window",
-    "+ Added: Installer MaxPkgPackager.mzp: drag it into 3ds Max, choose your project, and it puts this file there",
-    "* Changed: All project files now live in the max-package folder; the files of version 1.x move there automatically",
-    "* Changed: This file is a small launcher; the packager itself lives in your user profile and updates there",
-    "* Changed: Needs 3ds Max 2022 or newer; in older 3ds Max it offers to keep version 1.2.1"
+    "* Changed: Every package now includes the MaxPkg install and uninstall windows; they come with the packager",
+    "* Changed: The Setup tab keeps only your own custom scripts: nothing to add or download"
   ]
 }

@@ -5,7 +5,8 @@
 It checks the launcher, builds the payload, the installer and the update information:
     maxpkg-packager.ms                     the one file a project needs: checked to be ASCII with CRLF line endings and
                                            to carry the same VERSION as the package (it is the source, not generated)
-    release/maxpkg-packager-app-<v>.zip    the application: python/ and assets/ from maxpkg-src/      (committed)
+    release/maxpkg-packager-app-<v>.zip    the application: python/ and assets/ from maxpkg-src/,     (committed)
+                                           and the two hooks from the root as assets/hooks/
     release/update.json                    read by installed copies: version, payload URL + SHA-256,  (committed)
                                            launcher, hooks
     release/MaxPkgPackager.mzp             the installer for people: drag it into 3ds Max, choose a project (attached
@@ -41,6 +42,7 @@ SOURCE = os.path.join(ROOT, "maxpkg-src")  # Not "src": a client project may hav
 RELEASE = os.path.join(ROOT, "release")
 LAUNCHER = os.path.join(ROOT, "maxpkg-packager.ms")
 HOOKS = ROOT  # _install.ms and _uninstall.ms stay in the root: packager 1.x updates them from there
+HOOK_FILES = ("_install.ms", "_uninstall.ms")
 LEGACY = os.path.join(RELEASE, "maxpkg-packager-1.x.ms")
 DEFAULT_BASE = "https://raw.githubusercontent.com/maxpkg-dev/max-dev-tool/main/"
 SKIP_DIRS = {"__pycache__", ".git"}
@@ -132,6 +134,11 @@ def build_payload(version):
                     info.compress_type = zipfile.ZIP_DEFLATED
                     with open(full, "rb") as handle:
                         archive.writestr(info, handle.read())  # Fixed timestamps: same sources, same hash.
+        for name in HOOK_FILES:  # Part of every package the packager builds (core/hooks.py reads them from here)
+            info = zipfile.ZipInfo("assets/hooks/" + name, (2026, 1, 1, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            with open(os.path.join(HOOKS, name), "rb") as handle:
+                archive.writestr(info, handle.read())
     return target
 
 
@@ -287,7 +294,7 @@ def main():
                     "size": os.path.getsize(payload)},
         "launcher": {"url": base + "maxpkg-packager.ms", "sha256": sha256(LAUNCHER)},
         "hooks": {name: {"url": base + name, "sha256": sha256(os.path.join(HOOKS, name))}
-                  for name in ("_install.ms", "_uninstall.ms")},
+                  for name in HOOK_FILES},
         "notes": notes,
     }
     with open(os.path.join(RELEASE, "update.json"), "w", encoding="utf-8", newline="\n") as handle:

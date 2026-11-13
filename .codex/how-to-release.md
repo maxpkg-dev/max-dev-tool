@@ -11,6 +11,9 @@ Users update from what is on `main`. Older copies look for fixed paths, so:
 
 - `maxpkg-packager.ms`, `_install.ms` and `_uninstall.ms` stay in the repository root. Version 1.x downloads exactly
   these three when it updates itself (it then runs the new `maxpkg-packager.ms`, and saves it as UTF-16).
+- These two files are also the ones every package is built with. `release.py` packs them into the application
+  archive as `assets/hooks/`; an installed copy reads them from there (`core/hooks.py`), copies them into a project's
+  `max-package\` when it opens the project, and puts them into every `.mzp`. Change them only in the root.
 - `release/update.json` stays where it is: every installed 2.x copy checks it (`UPDATE_URL`) and the launcher reads it
   on a first install.
 - What `main` serves is stored byte for byte: `.gitattributes` keeps `-text` for the launcher, the two hooks and
@@ -84,9 +87,10 @@ until Ctrl+C. In 3ds Max, with `LOCALAPPDATA` set to the rehearsal profile:
    Press Restart (or `fileIn` the same file). Expected: the 1.x window closes; the server serves
    `release/update.json` and the archive; the packager opens on that project with its data ("Bitmap Collector",
    1 file, entry `test.ms`, 10 changelog items); the project root holds only `max-package`, `maxpkg-packager.ms` and
-   `test.ms`.
+   `test.ms`; `max-package\_install.ms` and `_uninstall.ms` are byte for byte the ones in the repository root.
 2. Installer: `fileIn` `release/MaxPkgPackager.mzp`. Expected: the setup window; Install into the rehearsal's
-   `scratch` folder puts only `maxpkg-packager.ms` there; Open the packager opens it there.
+   `scratch` folder puts only `maxpkg-packager.ms` there; Open the packager opens it there, and `max-package`
+   appears with `_install.ms` and `_uninstall.ms`.
 3. A 2.x copy updates through `core/updater.py` (covered by `UpdaterTests`) and the launcher's offline install (the
    installer step above).
 4. 3ds Max older than 2022, when the launcher, `install.ms` or the 1.x copy changed: with no old 3ds Max at hand, use

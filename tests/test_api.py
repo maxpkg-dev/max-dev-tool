@@ -62,6 +62,8 @@ class ApiTests(unittest.TestCase):
         self.assertTrue(result["data"]["exists"])
         self.assertTrue(os.path.isfile(result["data"]["outputFile"]))
         self.assertIn("main.ms", result["data"]["files"])
+        for name in ("_install.ms", "_uninstall.ms"):  # In every package, with nothing to add or download
+            self.assertIn(name, result["data"]["files"])
         self.assertEqual(sorted(os.listdir(self.root)), ["logo.svg", "main.ms", "max-package", "tools"])
         state = call("getState")["data"]
         self.assertEqual(state["options"]["version"], "1.2.0")
@@ -85,6 +87,15 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(call("removeFile", "main.ms")["errors"][0]["code"], "FILE_IN_USE")
         self.assertTrue(call("removeFile", 1, True)["ok"])
         self.assertEqual(call("listFiles")["data"]["files"], [])
+
+    def test_install_and_uninstall_windows_are_always_there(self):
+        state = call("getState")["data"]
+        self.assertEqual(state["standardHooks"], {"_install.ms": True, "_uninstall.ms": True})
+        added = call("addStandardHook", "_install.ms")  # Kept for older automation
+        self.assertTrue(added["ok"], added)
+        self.assertEqual(added["data"]["standardHooks"], {"_install.ms": True, "_uninstall.ms": True})
+        self.assertEqual(call("addStandardHook", "other.ms")["errors"][0]["code"], "INVALID_VALUE")
+        self.assertEqual(call("getSchema")["data"]["apiVersion"], "2.1.0")
 
     def test_changes_are_saved_at_once(self):
         call("setOption", "packageName", "Saved Tool")

@@ -440,14 +440,12 @@ class Controller(object):
                 result["error"] = str(error)
                 return result
             info = updater.fetch_info(UPDATE_URL, __version__, data=data)
-            if home:  # Keep the project's launcher and standard files current; verified, with a .bak during replace.
-                targets = [("maxpkg-packager.ms", data.get("launcher"))] + [
-                    (name, (data.get("hooks") or {}).get(name)) for name in ("_install.ms", "_uninstall.ms")]
-                for name, entry in targets:
-                    path = os.path.join(project_root, name) if name == "maxpkg-packager.ms" \
-                        else os.path.join(project_root, core_project.SUPPORT_DIR, name)
-                    if entry and os.path.isfile(path) and updater.sha256_file(path) != entry.get("sha256", "").lower():
-                        updater.replace_file(entry["url"], entry.get("sha256", ""), path)
+            if home:  # Keep the project's launcher current; verified, with a .bak during replace. The install and
+                # uninstall windows come with the application itself (core/hooks.py), not from here.
+                entry = data.get("launcher")
+                path = os.path.join(project_root, "maxpkg-packager.ms")
+                if entry and os.path.isfile(path) and updater.sha256_file(path) != entry.get("sha256", "").lower():
+                    updater.replace_file(entry["url"], entry.get("sha256", ""), path)
             if info is None:
                 return result
             result.update(version=info.version, notes=info.notes)
@@ -471,20 +469,3 @@ class Controller(object):
 
         self.runner.submit(work, on_done=finished, on_error=finished, name="update")
         return True
-
-    def download_hook(self, name, on_done):
-        """Download a standard installer file (_install.ms / _uninstall.ms) into the project folder."""
-        project_root = self.project_root
-
-        def work(cancel):
-            data = updater.fetch_manifest(UPDATE_URL)
-            entry = (data.get("hooks") or {}).get(name)
-            if not entry:
-                raise updater.UpdateError("{} is not published".format(name))
-            folder = os.path.join(project_root, core_project.SUPPORT_DIR)
-            os.makedirs(folder, exist_ok=True)
-            updater.replace_file(entry["url"], entry.get("sha256", ""), os.path.join(folder, name))
-            return name
-
-        self.runner.submit(work, on_done=lambda value: on_done(value), on_error=lambda error: on_done(error),
-                           name="hook")

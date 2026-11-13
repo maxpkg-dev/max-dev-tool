@@ -57,12 +57,15 @@ MyTool\
     project.ini           settings
     changelog.ini         changelog of every version
     icon.svg              the package icon
-    _install.ms           optional standard install window
-    _uninstall.ms         optional standard uninstall window
+    _install.ms           the MaxPkg install window, in every package
+    _uninstall.ms         the MaxPkg uninstall window, in every package
     dist\                 built .mzp packages
   main.ms                 your files, untouched
   ...
 ```
+
+`_install.ms` and `_uninstall.ms` come with the packager: it puts them there when it opens the project and keeps
+them current. For your own work at install or removal, choose a custom script on the **Setup** tab.
 
 Projects made with the packager 1.x open as they are: their files move into `max-package` on the first run.
 Commit `max-package` with your project; its `dist` is ignored automatically.
@@ -98,8 +101,9 @@ automatically. You can turn automatic updates off in **Settings**.
 ```text
 maxpkg-packager.ms     the launcher a project needs (ASCII; its header carries the version and release notes; version
                        1.x updates itself to it from here)
-_install.ms            the standard MaxPkg install window (version 1.x also updates it from here)
-_uninstall.ms          the standard MaxPkg removal window
+_install.ms            the MaxPkg install window: packed into the application and added to every package
+                       (version 1.x also updates it from here)
+_uninstall.ms          the MaxPkg removal window, the same way
 release.bat            publishes a release (tests, build, then commit, push and GitHub release after you confirm)
 maxpkg-src\            the packager: python\ (Python + Qt), assets\, tools\ (release.py, update_check.py); a name
                        no client project uses
