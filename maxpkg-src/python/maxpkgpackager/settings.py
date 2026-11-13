@@ -16,6 +16,7 @@ DEFAULTS = {
     "last_license": "",
     "auto_update": True,  # Check for a new version at start and install it in the background.
     "ui_scale": "auto",  # Interface size: "auto" (screen and Windows / Max scaling) or a factor as text, "1.25".
+    "seen_version": "",  # The version whose "Updated" window was decided on; a newer one shows what is new, once.
     "window_geometry": "",  # saveGeometry() of the full window, base64.
     "mini_position": [],  # [x, y] of the collapsed bar when the user last moved it; [] = active viewport corner.
 }

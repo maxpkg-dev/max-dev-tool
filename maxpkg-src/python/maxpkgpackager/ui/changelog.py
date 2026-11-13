@@ -60,6 +60,31 @@ def draw_badge(painter, left, center_y, kind, colors, base):
     return badge
 
 
+class KindBadge(QtWidgets.QWidget, controls.Themed):
+    """The badge of a changelog type as a widget of its own, for a list of notes outside the editor."""
+
+    def __init__(self, kind, theme, parent=None):
+        QtWidgets.QWidget.__init__(self, parent)
+        self._kind = kind
+        self.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        self.bind_theme(theme)
+
+    def _on_theme(self, colors):
+        self._colors = colors
+        self.update()
+
+    def sizeHint(self):
+        height = QtGui.QFontMetricsF(_badge_font(self.font())).capHeight() + px(9)
+        return QtCore.QSize(int(math.ceil(badge_width(self.font()))), int(math.ceil(height)) + 1)
+
+    minimumSizeHint = sizeHint
+
+    def paintEvent(self, event):
+        painter = QtGui.QPainter(self)
+        draw_badge(painter, 0, self.height() / 2.0, self._kind, self._colors, self.font())
+        painter.end()
+
+
 class KindDelegate(QtWidgets.QStyledItemDelegate):
     """The rows of the type dropdown: the badge of each type, as it will look in the list."""
 

@@ -3,7 +3,7 @@
 Identity and links live here once; the title bar, About, Settings and Donate buttons read them.
 """
 
-__version__ = "2.0.1"
+__version__ = "2.0.2"
 TOOL_NAME = "MaxPkgPackager"  # Identifier: names the %LOCALAPPDATA% folder, log and launcher file.
 DISPLAY_NAME = "MaxPkg Packager"  # Human-readable title (added to the template: title bars, dialogs, messages).
 SUBTITLE = "Build clean MaxPkg .mzp packages for 3ds Max"

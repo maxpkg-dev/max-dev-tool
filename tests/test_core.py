@@ -501,6 +501,87 @@ class HookTests(unittest.TestCase):
                 self.assertEqual(archive.read("assets/hooks/" + name), self.shipped(name), name)
 
 
+class NotesTests(unittest.TestCase):
+    """The "Updated" window: whose notes it shows and when. Packager 1.x announces its own update in a plain window
+    that lists every section of the launcher's header newer than itself, so that header stays short."""
+
+    HEADER = ("/*\r\n[INFO]\r\nVERSION=2.3.4\r\n\r\n[ABOUT]\r\nText. =\r\n\r\n[2.0.0]\r\n+ Added: Rewrite=\r\n"
+              "* Changed: Folder=\r\n\r\n[2.3.4]\r\n- Fixed: A crash=\r\n** Improved: Speed=\r\n\r\n[SCRIPT]\r\n*/\r\n"
+              "[9.9.9]\r\nnot a note=\r\n")
+
+    def setUp(self):
+        from maxpkgpackager.core import notes
+        self.notes = notes
+
+    def test_header_sections_and_note_lines(self):
+        sections = self.notes.header_sections(self.HEADER)
+        self.assertEqual(sections, {"2.0.0": ["+ Added: Rewrite", "* Changed: Folder"],
+                                    "2.3.4": ["- Fixed: A crash", "** Improved: Speed"]})
+        parse = self.notes.parse_line
+        self.assertEqual(parse("+ Added: Rewrite="), ("Added", "Rewrite"))
+        self.assertEqual(parse("- Fixed: A crash"), ("Fixed", "A crash"))
+        self.assertEqual(parse("** Improved: Speed"), ("Improved", "Speed"))
+        self.assertEqual(parse("* Plain words"), ("Changed", "Plain words"))
+
+    def test_when_the_window_comes_up(self):
+        notice = self.notes.notice
+        self.assertIsNone(notice("2.0.2"))  # A first install: nothing to announce
+        self.assertIsNone(notice("2.0.2", seen="2.0.2"))
+        self.assertIsNone(notice("2.0.2", seen="2.0.2", previous="2.0.1"))  # Already announced
+        self.assertEqual(notice("2.0.2", seen="2.0.1"), {"kind": "update", "previous": "2.0.1"})
+        # 2.0.0 and 2.0.1 did not remember a version: what the installed copy replaced tells where they came from
+        self.assertEqual(notice("2.0.2", previous="2.0.0"), {"kind": "update", "previous": "2.0.0"})
+        self.assertIsNone(notice("2.0.1", seen="2.0.2"))  # Rolled back to the previous version
+        self.assertEqual(notice("2.0.2", seen="2.0.2", migrated=True)["kind"], "welcome")  # A project from 1.x
+
+    def test_which_versions_it_lists(self):
+        history = {"2.0.0": [("Added", "Rewrite")], "2.0.1": [("Changed", "Hooks")], "2.0.2": [("Added", "Window")],
+                   "2.0.3": [("Fixed", "Later")], "2.0.4": []}
+        listed = self.notes.to_show("2.0.2", {"kind": "update", "previous": "2.0.0"}, history)
+        self.assertEqual([version for version, _items in listed], ["2.0.2", "2.0.1"])
+        listed = self.notes.to_show("2.0.2", {"kind": "welcome", "previous": ""}, history)
+        self.assertEqual([version for version, _items in listed], ["2.0.2", "2.0.0"])
+        self.assertEqual(self.notes.to_show("2.0.2", {"kind": "update", "previous": "2.0.1"}, {}), [])
+
+    def test_the_packager_ships_its_notes(self):
+        history = self.notes.history()
+        self.assertIn(self.notes.FIRST_VERSION_2, history)
+        for items in history.values():
+            for kind, body in items:
+                self.assertIn(kind, project_module.CHANGELOG_TYPES)
+                self.assertTrue(body)
+        self.assertEqual(self.notes.history(os.path.join(HERE, "missing.json")), {})
+
+    def test_the_launcher_header_stays_short(self):
+        """release.py refuses a header with more than the notes of 2.0.0 and of the current version, and keeps the
+        notes of every version in release-notes.json."""
+        sys.path.insert(0, os.path.join(os.path.dirname(HERE), "maxpkg-src", "tools"))
+        self.addCleanup(sys.path.pop, 0)
+        import release
+        work = tempfile.mkdtemp(prefix="maxpkg-notes-")
+        self.addCleanup(shutil.rmtree, work, True)
+        launcher, stored = os.path.join(work, "maxpkg-packager.ms"), os.path.join(work, "release-notes.json")
+        for name, value in (("LAUNCHER", launcher), ("HISTORY", stored)):
+            self.addCleanup(setattr, release, name, getattr(release, name))
+            setattr(release, name, value)
+        with open(stored, "w", encoding="utf-8") as handle:
+            json.dump({"2.1.0": ["- Fixed: Older"]}, handle)
+        with open(launcher, "wb") as handle:
+            handle.write(self.HEADER.encode("ascii"))
+        self.assertEqual(release.check_launcher("2.3.4"), ["- Fixed: A crash", "** Improved: Speed"])
+        with open(stored, encoding="utf-8") as handle:
+            self.assertEqual(list(json.load(handle)), ["2.0.0", "2.1.0", "2.3.4"])  # Older notes are kept
+        with open(launcher, "wb") as handle:
+            handle.write(self.HEADER.replace("[2.3.4]", "[2.3.3]\r\n- Fixed: Old=\r\n\r\n[2.3.4]").encode("ascii"))
+        with self.assertRaises(SystemExit) as stopped:
+            release.check_launcher("2.3.4")
+        self.assertIn("Remove [2.3.3]", str(stopped.exception))
+        with open(os.path.join(os.path.dirname(HERE), "maxpkg-packager.ms"), "rb") as handle:  # The real one
+            real = self.notes.header_sections(handle.read().decode("ascii"))
+        self.assertLessEqual(set(real), {self.notes.FIRST_VERSION_2, VERSION})
+        self.assertIn(VERSION, real)
+
+
 class UpdaterTests(unittest.TestCase):
     def setUp(self):
         self.base = tempfile.mkdtemp(prefix="maxpkg-upd-")

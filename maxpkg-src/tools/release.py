@@ -5,6 +5,8 @@
 It checks the launcher, builds the payload, the installer and the update information:
     maxpkg-packager.ms                     the one file a project needs: checked to be ASCII with CRLF line endings and
                                            to carry the same VERSION as the package (it is the source, not generated)
+    maxpkg-src/assets/release-notes.json   the notes of every version, for the "Updated" window: this  (committed)
+                                           version's notes are added from the launcher's header
     release/maxpkg-packager-app-<v>.zip    the application: python/ and assets/ from maxpkg-src/,     (committed)
                                            and the two hooks from the root as assets/hooks/
     release/update.json                    read by installed copies: version, payload URL + SHA-256,  (committed)
@@ -39,12 +41,15 @@ import zipfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SOURCE = os.path.join(ROOT, "maxpkg-src")  # Not "src": a client project may have one
+sys.path.insert(0, os.path.join(SOURCE, "python"))
+from maxpkgpackager.core.notes import FIRST_VERSION_2, header_sections  # noqa: E402  (pure code, any Python 3.7+)
 RELEASE = os.path.join(ROOT, "release")
 LAUNCHER = os.path.join(ROOT, "maxpkg-packager.ms")
 HOOKS = ROOT  # _install.ms and _uninstall.ms stay in the root: packager 1.x updates them from there
 HOOK_FILES = ("_install.ms", "_uninstall.ms")
 LEGACY = os.path.join(RELEASE, "maxpkg-packager-1.x.ms")
 DEFAULT_BASE = "https://raw.githubusercontent.com/maxpkg-dev/max-dev-tool/main/"
+HISTORY = os.path.join(SOURCE, "assets", "release-notes.json")  # The notes of every version, for the "Updated" window
 SKIP_DIRS = {"__pycache__", ".git"}
 SKIP_SUFFIXES = (".pyc", ".pyo", ".bak", ".tmp", ".log")
 
@@ -64,7 +69,8 @@ def sha256(path):
 def check_launcher(version):
     """ASCII (read by MAXScript and by the INI functions of packager 1.x, which updates itself to this file), CRLF,
     and the same version as the package. Returns the release notes of this version."""
-    raw = open(LAUNCHER, "rb").read()
+    with open(LAUNCHER, "rb") as handle:
+        raw = handle.read()
     try:
         text = raw.decode("ascii")
     except UnicodeDecodeError:
@@ -76,10 +82,33 @@ def check_launcher(version):
     found = re.search(r"^VERSION=(\S+)", text, re.M)
     if not found or found.group(1) != version:
         sys.exit("Version mismatch: package {} but launcher VERSION={}".format(version, found and found.group(1)))
-    section = re.search(r"^\[" + re.escape(version) + r"\]\s*$(.*?)^\[", normalized, re.M | re.S)
-    if not section:
+    sections = header_sections(normalized)
+    if not sections.get(version):
         sys.exit("The launcher has no [{}] release notes section".format(version))
-    return [line.strip().rstrip("=").strip() for line in section.group(1).splitlines() if line.strip()]
+    # Packager 1.x shows every section newer than itself in its own plain window when it updates, so the header
+    # keeps only what a 1.x user needs: what version 2 is, and this version. Older notes live in release-notes.json.
+    extra = sorted(set(sections) - {FIRST_VERSION_2, version})
+    if extra:
+        sys.exit("Remove [{}] from the header of maxpkg-packager.ms: it keeps only [{}] and [{}] (the notes of older "
+                 "versions are in maxpkg-src/assets/release-notes.json)".format("], [".join(extra), FIRST_VERSION_2,
+                                                                                version))
+    write_history(sections)
+    return sections[version]
+
+
+def write_history(sections):
+    """maxpkg-src/assets/release-notes.json: the notes of every version, kept from release to release. The packager
+    shows them in its "Updated" window (core/notes.py); the application archive carries the file."""
+    try:
+        with open(HISTORY, encoding="utf-8") as handle:
+            stored = json.load(handle)
+    except (OSError, ValueError):
+        stored = {}
+    stored.update(sections)
+    ordered = sorted(stored, key=lambda name: tuple(int(part) for part in name.split(".")))
+    with open(HISTORY, "w", encoding="utf-8", newline="\n") as handle:
+        json.dump({name: stored[name] for name in ordered}, handle, indent=2)
+        handle.write("\n")
 
 
 SERVED = ("maxpkg-packager.ms", "_install.ms", "_uninstall.ms", "release/update.json", "release/maxpkg-packager-1.x.ms",

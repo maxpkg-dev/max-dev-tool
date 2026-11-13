@@ -25,6 +25,14 @@ Users update from what is on `main`. Older copies look for fixed paths, so:
   because it only updates to itself it never turns into version 2 again. `release.py` refuses to build without it.
 - The launcher keeps its `[INFO]` header (`NAME`, `VERSION`, `UPDATE=...main/maxpkg-packager.ms`) and its notes
   sections with `=` at the end of every line: 1.x reads them with INI functions. It stays ASCII with CRLF.
+- The window "MaxPkg Packer Updated" is drawn by packager 1.x itself, from the copy in the user's project: no release
+  can change how it looks, only its text. It lists every version section of the new launcher's header that is newer
+  than the 1.x copy, so the header keeps exactly two: `[2.0.0]` (what version 2 is) and the current version.
+  `release.py` refuses anything more. After Restart the packager shows its own "Updated" window (`ui/whatsnew.py`,
+  decided by `core/notes.py`): "Welcome to version 2" for a project whose files have just moved from 1.x, "Updated to
+  <version>" when the installed copy is newer than the version in the `seen_version` setting (or, for 2.0.0 and
+  2.0.1, which did not store it, than `previous` in `current.json`). Its notes come from
+  `maxpkg-src/assets/release-notes.json`, which `release.py` extends at every release: commit it, never trim it.
 - The launcher keeps working with everything already installed: `current.json` (`version`, `dir`, `sha256`,
   `previous`, `previousDir`), `v<version>\python\bootstrap.py`, the environment variables `MAXPKG_PACKAGER_PROJECT`,
   `MAXPKG_PACKAGER_HEADLESS`, `MAXPKG_PACKAGER_SETUP`, and the MAXScript globals `MaxPkgPackerApi`,
@@ -42,7 +50,9 @@ Users update from what is on `main`. Older copies look for fixed paths, so:
 2. Read the current version from `maxpkg-src/python/maxpkgpackager/__init__.py` (`__version__`). It must equal
    `VERSION` in the `[INFO]` header of `maxpkg-packager.ms`.
 3. Raise both to the new version (`major.minor.patch`, each part 0-999; a higher part resets the lower ones).
-4. Add a section for the new version to the launcher header, before `[SCRIPT]`:
+4. In the launcher header, replace the section of the previous version with one for the new version, before
+   `[SCRIPT]`. The header keeps only `[2.0.0]` and the current version (see the rule above); `release.py` copies the
+   new notes into `maxpkg-src/assets/release-notes.json`, which keeps every version:
 
    ```ini
    [2.0.1]
@@ -52,7 +62,8 @@ Users update from what is on `main`. Older copies look for fixed paths, so:
    ** Improved: Short user-facing note=
    ```
 
-   Users of 1.x see these notes when they update; users of 2.x in the update pill.
+   Users of 1.x see these notes in the plain window of 1.x when they update; users of 2.x in the "Updated" window
+   the next time the packager opens. A note line may not contain `=` (1.x reads the header with INI functions).
 5. Complete the API check below.
 6. Run the tests with the Python of 3ds Max 2027 and 2022 (all must pass):
 
@@ -87,12 +98,16 @@ until Ctrl+C. In 3ds Max, with `LOCALAPPDATA` set to the rehearsal profile:
    Press Restart (or `fileIn` the same file). Expected: the 1.x window closes; the server serves
    `release/update.json` and the archive; the packager opens on that project with its data ("Bitmap Collector",
    1 file, entry `test.ms`, 10 changelog items); the project root holds only `max-package`, `maxpkg-packager.ms` and
-   `test.ms`; `max-package\_install.ms` and `_uninstall.ms` are byte for byte the ones in the repository root.
+   `test.ms`; `max-package\_install.ms` and `_uninstall.ms` are byte for byte the ones in the repository root. Over
+   the packager the "Updated" window says "Welcome to version 2" with the notes of this version and of 2.0.0; it
+   does not come back when the packager is opened again.
 2. Installer: `fileIn` `release/MaxPkgPackager.mzp`. Expected: the setup window; Install into the rehearsal's
    `scratch` folder puts only `maxpkg-packager.ms` there; Open the packager opens it there, and `max-package`
    appears with `_install.ms` and `_uninstall.ms`.
 3. A 2.x copy updates through `core/updater.py` (covered by `UpdaterTests`) and the launcher's offline install (the
-   installer step above).
+   installer step above). To see what its user sees: in the rehearsal profile install the previous release's archive
+   and then the new one with `updater.install_payload`, and open a project. Expected: "Updated to <version>" with the
+   previous version in the grey pill, once.
 4. 3ds Max older than 2022, when the launcher, `install.ms` or the 1.x copy changed: with no old 3ds Max at hand, use
    copies of the served launcher and of `install.ms` with `local maxRelease = 22000`, the question answered (`true`)
    and `getSavePath` replaced by a scratch folder. Expected: the project gets `maxpkg-packager.ms` version 1.2.1 whose

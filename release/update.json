@@ -1,14 +1,14 @@
 {
   "schema": 1,
-  "version": "2.0.1",
+  "version": "2.0.2",
   "payload": {
-    "url": "https://raw.githubusercontent.com/maxpkg-dev/max-dev-tool/main/release/maxpkg-packager-app-2.0.1.zip",
-    "sha256": "33bb2abcccfe1d8a2c73c43f7e9f9ab0cd2a512b84cc1c6e0924d1efe0a0a722",
-    "size": 181029
+    "url": "https://raw.githubusercontent.com/maxpkg-dev/max-dev-tool/main/release/maxpkg-packager-app-2.0.2.zip",
+    "sha256": "d3c3c1f9f1aafda582c9d0394d5dcd595ff5425abf0eb58038dcd5a87ccf6217",
+    "size": 186473
   },
   "launcher": {
     "url": "https://raw.githubusercontent.com/maxpkg-dev/max-dev-tool/main/maxpkg-packager.ms",
-    "sha256": "9dd9e477fec20a78e2f7ed84db0ef52befd8e3cb5a1f660ae0653782c547d107"
+    "sha256": "6076d58b41fdcb822780ac5a99f1f93966972bf21ff63294274943221d5e0cab"
   },
   "hooks": {
     "_install.ms": {
@@ -21,7 +21,7 @@
     }
   },
   "notes": [
-    "* Changed: Every package now includes the MaxPkg install and uninstall windows; they come with the packager",
-    "* Changed: The Setup tab keeps only your own custom scripts: nothing to add or download"
+    "+ Added: After an update the packager shows what is new in a window of its own style",
+    "** Improved: Coming from version 1.x, that window also says where the files of your project went"
   ]
 }

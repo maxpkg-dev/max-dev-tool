@@ -11,7 +11,7 @@ import sys
 import time
 
 from . import DISPLAY_NAME, TOOL_NAME, UPDATE_URL, __version__, logs, qt_compat, settings, startguard
-from .core import project as core_project, store, updater
+from .core import notes as core_notes, project as core_project, store, updater
 from .qt_compat import QtCore, QtWidgets, Signal, is_valid, max_main_window
 from .workers import JobRunner
 
@@ -202,6 +202,7 @@ class Controller(object):
             return
         guard.step("project")
         self.project_root = os.path.abspath(os.environ.get("MAXPKG_PACKAGER_PROJECT") or os.getcwd())
+        migrated = bool(store.migrate_legacy(self.project_root))  # A project of version 1.x: its files move now
         self.project = store.load(self.project_root)
         self._prefill_new_project()
         self.model = ProjectModel(self.project)
@@ -222,7 +223,30 @@ class Controller(object):
         if guard.crashed_at:
             self.window.toast.show_message("Safe start: the last start of {} crashed 3ds Max. Please send the logs (Logs "
                                    "button) to the developer.".format(DISPLAY_NAME), "warning", 15)
+        found = self._update_notice(migrated)
+        if found and not guard.safe:
+            QtCore.QTimer.singleShot(300, lambda: self.show_update(found))  # Over the window, once it is on screen
         _log.info("Started")
+
+    def _update_notice(self, migrated):
+        """What the "Updated" window says at this start (core.notes.notice), or None. The version is remembered at
+        once, so the window comes up one time only, whatever happens to it."""
+        state = updater.read_current(self.installed_home()) if self.installed_home() else None
+        found = core_notes.notice(__version__, str(self.prefs.get("seen_version") or ""),
+                                  (state or {}).get("previous") or "", migrated)
+        if self.prefs.get("seen_version") != __version__:
+            self.set_preference("seen_version", __version__)
+        if found:
+            _log.info("Update notice: %s", found)
+        return found
+
+    def show_update(self, found):
+        """The "Updated" window for a notice from core.notes.notice()."""
+        if self.state != "running" or self.window is None or not is_valid(self.window):
+            return None
+        from .ui.whatsnew import UpdateDialog
+        versions = core_notes.to_show(__version__, found)
+        return self._show_dialog("update", lambda _dialogs: UpdateDialog(self, self.window, found, versions))
 
     def _start_setup(self, launcher_source):
         """The installer's window: puts the launcher `launcher_source` into a script project the user chooses."""

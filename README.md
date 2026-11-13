@@ -79,8 +79,8 @@ moves the project's files. Nothing has to be done by hand.
 ## Updates
 
 The packager checks for a new version in the background and installs it next to the current one. The new version
-starts the next time you open the packager. A version that cannot start is rolled back to the previous one
-automatically. You can turn automatic updates off in **Settings**.
+starts the next time you open the packager and shows what is new, once. A version that cannot start is rolled back
+to the previous one automatically. You can turn automatic updates off in **Settings**.
 
 ## For AI agents and scripts
 

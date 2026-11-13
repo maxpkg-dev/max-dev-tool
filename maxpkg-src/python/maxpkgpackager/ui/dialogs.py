@@ -318,21 +318,24 @@ class SettingsDialog(ToolDialog):
             self.update_label.setText("An update check is already running.")
 
 
-class AboutDialog(ToolDialog):
-    """Full-bleed hero (icon, name, subtitle), full-width accent divider, body with About insets (24/18, spacing 12),
-    metadata, links, an optional disclaimer block, credits, a 36 px gap and Donate / Close. Header and hero keep a
-    fixed vertical policy so extra height goes to the scrollable body. Unknown values are left out, never invented."""
+class HeroDialog(ToolDialog):
+    """A dialog that opens with a full-bleed hero (icon, a heading, a line under it) over a full-width accent
+    divider, then a scrolling body with About insets (24/18, spacing 12) and a footer row that stays in view.
+    Header and hero keep a fixed vertical policy so extra height goes to the body. Subclasses fill `self.body_layout`
+    and `self.footer_layout` and call `fit()`; the window then takes the height of its content, as far as the screen
+    allows. About and the "Updated" window are built on it."""
 
     WIDTH = 460
+    MIN_HEIGHT = 360
     ICON_SIZE = 60
 
-    def __init__(self, controller, parent):
-        ToolDialog.__init__(self, controller, "About {}".format(DISPLAY_NAME), parent)
-        theme = controller.theme
+    def __init__(self, controller, title, parent, heading, under):
+        """heading: the large line of the hero; under: the widget shown below it (a subtitle, version pills)."""
+        ToolDialog.__init__(self, controller, title, parent)
         self.setMinimumWidth(px(320))
-        about = QtWidgets.QVBoxLayout(self.content)
-        about.setContentsMargins(0, 0, 0, 0)
-        about.setSpacing(0)
+        frame = QtWidgets.QVBoxLayout(self.content)
+        frame.setContentsMargins(0, 0, 0, 0)
+        frame.setSpacing(0)
 
         hero = QtWidgets.QFrame()
         hero.setObjectName("toolAboutHero")
@@ -346,29 +349,24 @@ class AboutDialog(ToolDialog):
         hero_layout.addWidget(icon, 0, Qt.AlignVCenter)
         names = QtWidgets.QVBoxLayout()
         names.setSpacing(0)
-        title = QtWidgets.QLabel(DISPLAY_NAME)
-        title.setObjectName("toolAboutTitle")
-        font = title.font()
+        caption = QtWidgets.QLabel(heading)
+        caption.setObjectName("toolAboutTitle")
+        font = caption.font()
         font.setPointSizeF(pt(20))
         font.setBold(True)
-        title.setFont(font)
-        subtitle = QtWidgets.QLabel(SUBTITLE)
-        subtitle.setObjectName("toolMuted")
-        font = subtitle.font()
-        font.setPointSizeF(pt(10))
-        subtitle.setFont(font)
+        caption.setFont(font)
         names.addStretch(1)
-        names.addWidget(title)
-        names.addWidget(subtitle)
+        names.addWidget(caption)
+        names.addWidget(under)
         names.addStretch(1)
         hero_layout.addLayout(names, 1)
-        about.addWidget(hero)
+        frame.addWidget(hero)
 
         divider = QtWidgets.QFrame()
         divider.setObjectName("toolAccentDivider")
         divider.setFixedHeight(px(2))
         divider.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
-        about.addWidget(divider)
+        frame.addWidget(divider)
 
         scroll = QtWidgets.QScrollArea()
         scroll.setWidgetResizable(True)
@@ -376,68 +374,22 @@ class AboutDialog(ToolDialog):
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         body = QtWidgets.QWidget()
         body.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Expanding)
-        content = QtWidgets.QVBoxLayout(body)
-        content.setContentsMargins(px(24), px(18), px(24), px(18))
-        content.setSpacing(px(12))
-        content.addWidget(_wrapped(DESCRIPTION))
-        content.addWidget(how_to_card(theme, USE_STEPS, USE_NOTE))
-        meta = QtWidgets.QGridLayout()
-        meta.setHorizontalSpacing(px(16))
-        meta.setVerticalSpacing(px(4))
-        rows = [("Version", __version__)] + ([("Developer", DEVELOPER)] if DEVELOPER else [])
-        for row, (label, value) in enumerate(rows):
-            meta.addWidget(controls.muted(label, wrap=False), row, 0)
-            shown = QtWidgets.QLabel(value)
-            shown.setTextInteractionFlags(Qt.TextSelectableByMouse)
-            meta.addWidget(shown, row, 1)
-        meta.setColumnStretch(1, 1)
-        content.addLayout(meta)
-        if LINKS:
-            links = QtWidgets.QHBoxLayout()
-            links.setSpacing(px(16))
-            link_color = theme.colors.get("support_link", theme.colors.get("accent"))
-            for label, address in LINKS:
-                link = QtWidgets.QLabel('<a href="{0}" style="color:{1}; text-decoration:none">{2}</a>'.format(
-                    address, link_color, label))
-                link.setTextFormat(Qt.RichText)
-                link.setOpenExternalLinks(True)
-                link.setCursor(Qt.PointingHandCursor)
-                links.addWidget(link)
-            links.addStretch(1)
-            content.addLayout(links)
-        if DISCLAIMER:  # A warning block: rounded, warning tint fading down.
-            notice = QtWidgets.QFrame()
-            notice.setObjectName("toolBanner")
-            notice_layout = QtWidgets.QVBoxLayout(notice)
-            notice_layout.setContentsMargins(px(12), px(10), px(12), px(10))
-            notice_layout.setSpacing(px(4))
-            notice_title = QtWidgets.QLabel("Disclaimer")
-            notice_title.setObjectName("toolBannerTitle")
-            notice_layout.addWidget(notice_title)
-            notice_layout.addWidget(_wrapped(DISCLAIMER, muted=True))
-            content.addWidget(notice)
-        content.addWidget(_rule())  # The footer apart from the rest
-        content.addWidget(_wrapped("Credits: " + CREDITS, muted=True))
-        content.addStretch(1)
+        self.body_layout = QtWidgets.QVBoxLayout(body)
+        self.body_layout.setContentsMargins(px(24), px(18), px(24), px(18))
+        self.body_layout.setSpacing(px(12))
         # The buttons stay at the bottom of the window, outside the scrolling part: always in view
         footer = QtWidgets.QWidget()
-        buttons = QtWidgets.QHBoxLayout(footer)
-        buttons.setContentsMargins(px(24), px(10), px(24), px(14))
-        if DONATE_URL:
-            donate = controls.Button("Donate", theme, icon="heart", variant="donate",
-                                     tooltip="Support {} development".format(DISPLAY_NAME))
-            donate.clicked.connect(lambda: QtGui.QDesktopServices.openUrl(QtCore.QUrl(DONATE_URL)))
-            buttons.addWidget(donate)
-        buttons.addStretch(1)
-        close = controls.Button("Close", theme)
-        close.clicked.connect(self.close)
-        buttons.addWidget(close)
+        self.footer_layout = QtWidgets.QHBoxLayout(footer)
+        self.footer_layout.setContentsMargins(px(24), px(10), px(24), px(14))
         scroll.setWidget(body)
-        about.addWidget(scroll, 1)
-        about.setStretchFactor(scroll, 1)
-        about.addWidget(footer)
+        frame.addWidget(scroll, 1)
+        frame.setStretchFactor(scroll, 1)
+        frame.addWidget(footer)
         self._hero, self._body, self._footer, self._scroll = hero, body, footer, scroll
         self._fitted = False
+
+    def fit(self):
+        """Call when the body and the footer are filled."""
         self._fit_to_screen()
 
     def showEvent(self, event):
@@ -472,7 +424,76 @@ class AboutDialog(ToolDialog):
         area = work_area(self.frameGeometry().center())  # By position, never self.screen() (qt_compat.live_screens).
         if area is not None:
             height = min(height, int(area.height() * 0.9))
-        self.resize(px(self.WIDTH), max(px(360), height))
+        self.resize(px(self.WIDTH), max(px(self.MIN_HEIGHT), height))
+
+
+class AboutDialog(HeroDialog):
+    """The hero with the tool's name and subtitle; then the description, how to use it, metadata, links, an optional
+    disclaimer block, credits and Donate / Close. Unknown values are left out, never invented."""
+
+    def __init__(self, controller, parent):
+        subtitle = QtWidgets.QLabel(SUBTITLE)
+        subtitle.setObjectName("toolMuted")
+        font = subtitle.font()
+        font.setPointSizeF(pt(10))
+        subtitle.setFont(font)
+        HeroDialog.__init__(self, controller, "About {}".format(DISPLAY_NAME), parent, DISPLAY_NAME, subtitle)
+        theme = controller.theme
+        content, buttons = self.body_layout, self.footer_layout
+        content.addWidget(_wrapped(DESCRIPTION))
+        content.addWidget(how_to_card(theme, USE_STEPS, USE_NOTE))
+        meta = QtWidgets.QGridLayout()
+        meta.setHorizontalSpacing(px(16))
+        meta.setVerticalSpacing(px(4))
+        rows = [("Version", __version__)] + ([("Developer", DEVELOPER)] if DEVELOPER else [])
+        for row, (label, value) in enumerate(rows):
+            meta.addWidget(controls.muted(label, wrap=False), row, 0)
+            shown = QtWidgets.QLabel(value)
+            shown.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            meta.addWidget(shown, row, 1)
+        meta.setColumnStretch(1, 1)
+        content.addLayout(meta)
+        if LINKS:
+            links = QtWidgets.QHBoxLayout()
+            links.setSpacing(px(16))
+            for label, address in LINKS:
+                links.addWidget(link_label(theme, label, address))
+            links.addStretch(1)
+            content.addLayout(links)
+        if DISCLAIMER:  # A warning block: rounded, warning tint fading down.
+            notice = QtWidgets.QFrame()
+            notice.setObjectName("toolBanner")
+            notice_layout = QtWidgets.QVBoxLayout(notice)
+            notice_layout.setContentsMargins(px(12), px(10), px(12), px(10))
+            notice_layout.setSpacing(px(4))
+            notice_title = QtWidgets.QLabel("Disclaimer")
+            notice_title.setObjectName("toolBannerTitle")
+            notice_layout.addWidget(notice_title)
+            notice_layout.addWidget(_wrapped(DISCLAIMER, muted=True))
+            content.addWidget(notice)
+        content.addWidget(_rule())  # The footer apart from the rest
+        content.addWidget(_wrapped("Credits: " + CREDITS, muted=True))
+        content.addStretch(1)
+        if DONATE_URL:
+            donate = controls.Button("Donate", theme, icon="heart", variant="donate",
+                                     tooltip="Support {} development".format(DISPLAY_NAME))
+            donate.clicked.connect(lambda: QtGui.QDesktopServices.openUrl(QtCore.QUrl(DONATE_URL)))
+            buttons.addWidget(donate)
+        buttons.addStretch(1)
+        close = controls.Button("Close", theme)
+        close.clicked.connect(self.close)
+        buttons.addWidget(close)
+        self.fit()
+
+
+def link_label(theme, label, address):
+    """A link in the tool's link colour that opens in the browser."""
+    color = theme.colors.get("support_link", theme.colors.get("accent"))
+    link = QtWidgets.QLabel('<a href="{0}" style="color:{1}; text-decoration:none">{2}</a>'.format(address, color, label))
+    link.setTextFormat(Qt.RichText)
+    link.setOpenExternalLinks(True)
+    link.setCursor(Qt.PointingHandCursor)
+    return link
 
 
 class ConfirmDialog(ToolDialog):

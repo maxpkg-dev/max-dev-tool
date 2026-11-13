@@ -4,7 +4,7 @@ This guide is for AI agents and scripts that package a 3ds Max tool for [maxpkg.
 clicking through the packager window. Everything a person can do in the window can be done through
 `MaxPkgPackerApi`.
 
-API version: `2.1.0` (packager 2.0.1). Method and option names are those of the MaxScript packager 1.x API, so
+API version: `2.1.0` (packager 2.0.2). Method and option names are those of the MaxScript packager 1.x API, so
 existing automation keeps working; what changed is listed at the end.
 
 ## Rules for agents
