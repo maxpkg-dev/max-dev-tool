@@ -263,15 +263,6 @@ class Controller(object):
         QtCore.QTimer.singleShot(0, self._ready)
         _log.info("Started")
 
-    def open_launcher(self, launcher):
-        """Run a project's launcher (after Setup): the packager starts again, in that project."""
-        try:
-            from pymxs import runtime as rt
-        except ImportError:
-            return False
-        QtCore.QTimer.singleShot(0, lambda: rt.fileIn(launcher))  # After the click that asked for it returns
-        return True
-
     def _prefill_new_project(self):
         """A project that was never configured starts with the obvious values filled in."""
         project = self.project

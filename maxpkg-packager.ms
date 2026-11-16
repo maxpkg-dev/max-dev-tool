@@ -1,7 +1,7 @@
 /*
 [INFO]
 NAME=MaxPkg Packager
-VERSION=2.0.2
+VERSION=2.0.3
 AUTHOR=Vasyl Lukianenko
 DEV=https://3dground.net
 SITE=https://maxpkg.dev
@@ -24,9 +24,8 @@ Everything it keeps for your project is in the max-package folder next to it. =
 * Changed: maxpkg-packager.ms is a small launcher; the packager itself lives in your user profile and updates there=
 * Changed: Needs 3ds Max 2022 or newer; in older 3ds Max it offers to keep version 1.2.1=
 
-[2.0.2]
-+ Added: After an update the packager shows what is new in a window of its own style=
-** Improved: Coming from version 1.x, that window also says where the files of your project went=
+[2.0.3]
+* Changed: After Install, the installer's main button is Open Project Folder: it shows maxpkg-packager.ms in your project instead of starting the packager=
 
 [SCRIPT]
 */

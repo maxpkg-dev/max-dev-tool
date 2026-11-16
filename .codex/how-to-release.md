@@ -102,8 +102,9 @@ until Ctrl+C. In 3ds Max, with `LOCALAPPDATA` set to the rehearsal profile:
    the packager the "Updated" window says "Welcome to version 2" with the notes of this version and of 2.0.0; it
    does not come back when the packager is opened again.
 2. Installer: `fileIn` `release/MaxPkgPackager.mzp`. Expected: the setup window; Install into the rehearsal's
-   `scratch` folder puts only `maxpkg-packager.ms` there; Open the packager opens it there, and `max-package`
-   appears with `_install.ms` and `_uninstall.ms`.
+   `scratch` folder puts only `maxpkg-packager.ms` there; Open Project Folder shows that file selected in Explorer
+   and starts nothing; `fileIn` of that file opens the packager there, and `max-package` appears with `_install.ms`
+   and `_uninstall.ms`.
 3. A 2.x copy updates through `core/updater.py` (covered by `UpdaterTests`) and the launcher's offline install (the
    installer step above). To see what its user sees: in the rehearsal profile install the previous release's archive
    and then the new one with `updater.install_payload`, and open a project. Expected: "Updated to <version>" with the

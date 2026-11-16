@@ -13,7 +13,8 @@ Requires 3ds Max 2022 or newer.
    (the newest release).
 2. Drag it into a 3ds Max viewport (or **Scripting > Run Script...**). It installs the packager into your user profile,
    no internet needed, and asks for the root folder of your script project.
-3. It puts `maxpkg-packager.ms` there and shows how to go on. **Open the packager** starts it right away.
+3. It puts `maxpkg-packager.ms` there and shows how to go on. **Open Project Folder** shows that file in Explorer:
+   drag it into a viewport to open the packager.
 
 <p>
   <img src="docs/images/installer-project.png" width="320" alt="The installer asks for the root folder of the script project">

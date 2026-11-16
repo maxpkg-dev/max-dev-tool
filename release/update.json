@@ -1,14 +1,14 @@
 {
   "schema": 1,
-  "version": "2.0.2",
+  "version": "2.0.3",
   "payload": {
-    "url": "https://raw.githubusercontent.com/maxpkg-dev/max-dev-tool/main/release/maxpkg-packager-app-2.0.2.zip",
-    "sha256": "d3c3c1f9f1aafda582c9d0394d5dcd595ff5425abf0eb58038dcd5a87ccf6217",
-    "size": 186473
+    "url": "https://raw.githubusercontent.com/maxpkg-dev/max-dev-tool/main/release/maxpkg-packager-app-2.0.3.zip",
+    "sha256": "cf88c728c0300bc66754986058022e658be1f93059abee59c176c10b2a3884f2",
+    "size": 186583
   },
   "launcher": {
     "url": "https://raw.githubusercontent.com/maxpkg-dev/max-dev-tool/main/maxpkg-packager.ms",
-    "sha256": "6076d58b41fdcb822780ac5a99f1f93966972bf21ff63294274943221d5e0cab"
+    "sha256": "3fc7f7c99f0f2dc165e1a79c0cb0ea81294191412730309598bf885d7bd72cc0"
   },
   "hooks": {
     "_install.ms": {
@@ -21,7 +21,6 @@
     }
   },
   "notes": [
-    "+ Added: After an update the packager shows what is new in a window of its own style",
-    "** Improved: Coming from version 1.x, that window also says where the files of your project went"
+    "* Changed: After Install, the installer's main button is Open Project Folder: it shows maxpkg-packager.ms in your project instead of starting the packager"
   ]
 }

@@ -2,11 +2,14 @@
 
 First page: choose the root folder of a script project; it says what installing does there (a new project, version
 1.x that is replaced, the same or another version). Install puts maxpkg-packager.ms into that folder, nothing else.
-Second page: a green confirmation and how to use the packager from now on; the main button opens it in the project.
+Second page: a green confirmation and how to use the packager from now on; the main button opens the project folder
+with `maxpkg-packager.ms` selected, ready to drag into a viewport (it does not start the packager).
 The primary button sits where Build sits in the packager, on the right of the bottom strip.
 """
 
 import os
+import subprocess
+import sys
 
 from .. import DISPLAY_NAME, __version__
 from ..core import setup as core_setup
@@ -101,17 +104,9 @@ class SetupWindow(ToolWindow):
         inner = QtWidgets.QVBoxLayout(banner)
         inner.setContentsMargins(px(10), px(6), px(6), px(8))
         inner.setSpacing(px(2))
-        head = QtWidgets.QHBoxLayout()
-        head.setSpacing(px(6))
         self.done_title = controls.ElidedLabel("")
         self.done_title.setObjectName("toolSuccessTitle")
-        head.addWidget(self.done_title, 1)
-        show = controls.Button("", theme, icon="folder-open", variant="ghost", tooltip="Show the project folder",
-                               icon_role="log_success")
-        show.clicked.connect(lambda: QtGui.QDesktopServices.openUrl(
-            QtCore.QUrl.fromLocalFile(os.path.dirname(self.target))))
-        head.addWidget(show)
-        inner.addLayout(head)
+        inner.addWidget(self.done_title)
         self.done_path = controls.ElidedLabel("")
         self.done_path.setObjectName("toolSuccessText")
         inner.addWidget(self.done_path)
@@ -154,7 +149,7 @@ class SetupWindow(ToolWindow):
 
     def on_action(self):
         if self.stack.currentIndex() == 1:
-            self.open_packager()
+            self.open_folder()
             return
         folder = os.path.abspath(self.folder.text().strip())
         try:
@@ -169,7 +164,7 @@ class SetupWindow(ToolWindow):
         self.done_path.setText(self.target)
         self.done_path.setToolTip(self.target)
         self.stack.setCurrentIndex(1)
-        self._set_action("Open the packager", "box", "Open {} in this project".format(DISPLAY_NAME))
+        self._set_action("Open Project Folder", "folder-open", "Show maxpkg-packager.ms in the project folder")
 
     def _set_action(self, text, icon, tooltip):
         self.action.setText(text)
@@ -184,9 +179,20 @@ class SetupWindow(ToolWindow):
         self.folder.setFocus()
         self.check_folder()
 
-    def open_packager(self):
-        """Run the launcher that is now in the project: this window closes and the packager opens there."""
-        self.controller.open_launcher(self.target)
+    def open_folder(self):
+        """Show the project folder in Explorer with maxpkg-packager.ms selected. Nothing is started, the window stays."""
+        reveal(self.target)
+
+
+def reveal(path):
+    """Open the folder of `path` in Explorer with the file selected (elsewhere, or when it is gone: just the folder)."""
+    if sys.platform == "win32" and os.path.isfile(path):
+        try:
+            subprocess.Popen('explorer.exe /select,"{}"'.format(os.path.normpath(path)))
+            return
+        except OSError:
+            pass
+    QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(os.path.dirname(path)))
 
 
 def _rich(text, theme):
