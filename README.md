@@ -68,6 +68,23 @@ MyTool\
 `_install.ms` and `_uninstall.ms` come with the packager: it puts them there when it opens the project and keeps
 them current. For your own work at install or removal, choose a custom script on the **Setup** tab.
 
+## What people see when they install your package
+
+Dragging your `.mzp` into 3ds Max opens your package's own installer: its icon, version, developer, license and
+3ds Max versions, one **Install** button, and the changelog of this version under **What's new**. Nothing is
+installed before Install is pressed; Install shows each step, then how to put the button on a toolbar and
+**Run it now**. Dragging it again offers **Reinstall** (or **Update**) and **Uninstall**. A 3ds Max older than
+the package's minimum gets a clear message and nothing is installed. With MaxPkg Manager the same files install and
+remove the package silently.
+
+<p>
+  <img src="docs/images/package-installer.png" width="320" alt="A package's installer: icon, version, Install and What's new">
+  <img src="docs/images/package-installed.png" width="320" alt="After Install: installed, how to put its button on a toolbar, Run it now">
+</p>
+
+The whole installer is `_install.ms`: a short MaxScript part and its Python + Qt part (3ds Max 2022 and newer);
+`_uninstall.ms` asks it to remove the package.
+
 Projects made with the packager 1.x open as they are: their files move into `max-package` on the first run.
 Commit `max-package` with your project; its `dist` is ignored automatically.
 

@@ -164,8 +164,11 @@ class ParityWithOldPackager(unittest.TestCase):
         self.assertIn("min3dsMax=2022", new_ini)
         self.assertEqual([l for l in new_ini.split("\n") if not l.startswith(skip)],
                          [l for l in old_ini.split("\n") if not l.startswith(skip)])
-        # Built by packager 1.1.1, before Quad Menu support: only the shared start of the installer must match.
-        self.assertEqual(old_run.split("\n")[:170], build._template("mzp.run.ms").split("\n")[:170])
+        self.assertIn("fn maxPkgEntryInstallMacroButton", old_run)
+        # Since 2.1 the package's _install.ms does what the old mzp.run.ms did (tests/test_hooks.py): it only hands over.
+        new_run = build._template("mzp.run.ms")
+        self.assertIn('global MaxPkgHookRequest = "install"', new_run)
+        self.assertIn("fileIn installerFile", new_run)
 
 
 class SvgCheckTests(unittest.TestCase):

@@ -14,6 +14,13 @@ Users update from what is on `main`. Older copies look for fixed paths, so:
 - These two files are also the ones every package is built with. `release.py` packs them into the application
   archive as `assets/hooks/`; an installed copy reads them from there (`core/hooks.py`), copies them into a project's
   `max-package\` when it opens the project, and puts them into every `.mzp`. Change them only in the root.
+- The package installer stays two files, `_install.ms` and `_uninstall.ms`, and nothing else: older copies and 1.x
+  fetch exactly these. `_install.ms` is the whole installer (a MaxScript part and its Python part in a comment block
+  between `#@maxpkg-python` and `#@end-maxpkg-python`, which may never contain the comment's end); `_uninstall.ms`
+  and the package's `mzp.run.ms` only hand over to it (`MaxPkgHookRequest`). Both stay ASCII with CRLF. With the
+  `MaxPkg` global (MaxPkg Manager) the installer works silently: install, the custom install script and
+  `MaxPkg.packageInstalled`; on removal only the custom uninstall script (the Manager deletes the rest). A local in
+  their MaxScript part may never be spelled like a global (names ignore case). `tests/test_hooks.py` checks this.
 - `release/update.json` stays where it is: every installed 2.x copy checks it (`UPDATE_URL`) and the launcher reads it
   on a first install.
 - What `main` serves is stored byte for byte: `.gitattributes` keeps `-text` for the launcher, the two hooks and
@@ -105,6 +112,11 @@ until Ctrl+C. In 3ds Max, with `LOCALAPPDATA` set to the rehearsal profile:
    `scratch` folder puts only `maxpkg-packager.ms` there; Open Project Folder shows that file selected in Explorer
    and starts nothing; `fileIn` of that file opens the packager there, and `max-package` appears with `_install.ms`
    and `_uninstall.ms`.
+   Package installer: build a package with this version and drag it into a 3ds Max whose `#temp`, `#userMacros`,
+   `#userIcons` and `#userStartupScripts` point to a scratch folder (`setDir`) and whose `MaxPkg` global is undefined.
+   Expected: its installer window; Install adds the button and icon there and shows Installed; the package's
+   `_uninstall.ms` opens on Uninstall and removes everything, its folder too. With a stand-in `MaxPkg` (a struct with
+   `packageInstalled`) the same package installs silently and reports its GUID.
 3. A 2.x copy updates through `core/updater.py` (covered by `UpdaterTests`) and the launcher's offline install (the
    installer step above). To see what its user sees: in the rehearsal profile install the previous release's archive
    and then the new one with `updater.install_payload`, and open a project. Expected: "Updated to <version>" with the

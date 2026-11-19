@@ -1,26 +1,29 @@
 {
   "schema": 1,
-  "version": "2.0.3",
+  "version": "2.1.0",
   "payload": {
-    "url": "https://raw.githubusercontent.com/maxpkg-dev/max-dev-tool/main/release/maxpkg-packager-app-2.0.3.zip",
-    "sha256": "cf88c728c0300bc66754986058022e658be1f93059abee59c176c10b2a3884f2",
-    "size": 186583
+    "url": "https://raw.githubusercontent.com/maxpkg-dev/max-dev-tool/main/release/maxpkg-packager-app-2.1.0.zip",
+    "sha256": "fcbd7792c97b9855d86c2a6a35ceb06b335174e539d48ab11f2ce1808708ff0a",
+    "size": 196747
   },
   "launcher": {
     "url": "https://raw.githubusercontent.com/maxpkg-dev/max-dev-tool/main/maxpkg-packager.ms",
-    "sha256": "3fc7f7c99f0f2dc165e1a79c0cb0ea81294191412730309598bf885d7bd72cc0"
+    "sha256": "cb088261eefa994ff92c1798daaf669a4a26656118bb14671951f66f5588846e"
   },
   "hooks": {
     "_install.ms": {
       "url": "https://raw.githubusercontent.com/maxpkg-dev/max-dev-tool/main/_install.ms",
-      "sha256": "ebc8ae14f136af7f3f9d25c89a33886074672c4f7a331c94da5222c3a3c7ebe9"
+      "sha256": "6023d3d178a8fbecef341983d4ca8a5ee836bb566a4c29dc2bf260b2b3810032"
     },
     "_uninstall.ms": {
       "url": "https://raw.githubusercontent.com/maxpkg-dev/max-dev-tool/main/_uninstall.ms",
-      "sha256": "2a17800e8f777474857733496a2a6c853332bd038437971171282f76b02b01f1"
+      "sha256": "45b925edc6d94b9b4eb4ec29a7262eec6a3cc67aa0358333fe6a9bdc7066e94a"
     }
   },
   "notes": [
-    "* Changed: After Install, the installer's main button is Open Project Folder: it shows maxpkg-packager.ms in your project instead of starting the packager"
+    "+ Added: Every package has its own installer window in the look of MaxPkg tools: Install, What's new, Uninstall",
+    "+ Added: A package checks the 3ds Max version first and says clearly when it cannot be installed",
+    "* Changed: Nothing of a package is installed before Install is pressed",
+    "** Improved: The package installer is two small files, without a web page inside"
   ]
 }
