@@ -74,8 +74,8 @@ Dragging your `.mzp` into 3ds Max opens your package's own installer: its icon, 
 3ds Max versions, one **Install** button, and the changelog of this version under **What's new**. Nothing is
 installed before Install is pressed; Install shows each step, then how to put the button on a toolbar and
 **Run it now**. Dragging it again offers **Reinstall** (or **Update**) and **Uninstall**. A 3ds Max older than
-the package's minimum gets a clear message and nothing is installed. With MaxPkg Manager the same files install and
-remove the package silently.
+the package's minimum gets a clear message and nothing is installed. The **i** in its title bar tells what the
+installer is and where it comes from. With MaxPkg Manager the same files install and remove the package silently.
 
 <p>
   <img src="docs/images/package-installer.png" width="320" alt="A package's installer: icon, version, Install and What's new">
